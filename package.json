@@ -1,0 +1,12 @@
+{
+  "name": "kla-design-platform",
+  "version": "3.5.0",
+  "private": true,
+  "description": "生物反应器 kLa 设计台：三维反应器、kLa / OTR / pCO₂ 计算、放大与场地转移、实测校准与优化、批次动态模拟",
+  "scripts": {
+    "test": "node tests/engine.test.js && node tests/sim.test.js && node tests/cfd.test.js"
+  },
+  "devDependencies": {
+    "playwright": "1.47.2"
+  }
+}

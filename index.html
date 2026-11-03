@@ -127,6 +127,33 @@ ol.why li{margin:5px 0;max-width:95ch}
 .sim-events{margin:0;padding-left:20px;font-size:13px}
 .sim-events li{margin:3px 0}
 @media (max-width:900px){.sim-grid{grid-template-columns:1fr}.sim-kpi{grid-template-columns:1fr 1fr}}
+.cfd-bar{padding:10px 12px;margin-bottom:12px}
+.cfd-opts{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:8px;font-size:13px;color:var(--muted)}
+.cfd-opts label{display:flex;align-items:center;gap:6px}
+.cfd-opts input[type=number]{width:72px}
+.cfd-opts select{width:auto}
+.cfd-prog{height:6px;border-radius:3px;background:var(--bg);border:1px solid var(--line);margin-top:8px;overflow:hidden}
+.cfd-prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.cfd-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:12px;align-items:start}
+.cfd-view{padding:12px;display:flex;flex-direction:column;align-items:center}
+.cfd-view canvas{display:block;max-width:100%;border-radius:4px;background:var(--bg);cursor:crosshair}
+.cfd-cbar{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:12px;color:var(--muted);margin-top:8px;width:100%}
+.cbar{display:inline-flex;align-items:center;gap:6px}
+.cbar i{display:inline-block;width:140px;height:10px;border-radius:2px}
+.cbar em{font-style:normal;font-family:var(--font-mono);font-size:11px}
+.cbar em:first-of-type{order:-1}
+.cfd-read{font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-top:6px;width:100%;min-height:2.6em}
+.cfd-kpi{grid-template-columns:repeat(4,minmax(0,1fr))}
+.cfd-kpi .tile .v{font-size:18px}
+.cfd-kpi .tile .k+.k{font-size:11px;margin-top:2px}
+.cfd-src{margin:0;padding-left:18px;font-size:13px;line-height:1.55}
+.cfd-src li{margin:4px 0}
+.ctbl{width:100%;font-size:13px}
+.ctbl th,.ctbl td{padding:4px 6px;border-bottom:1px solid var(--line);text-align:left;font-weight:500}
+.ctbl td{font-weight:400}
+.ctbl td:not(:first-child){font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+@media (max-width:1100px){.cfd-kpi{grid-template-columns:1fr 1fr}}
+@media (max-width:900px){.cfd-grid{grid-template-columns:1fr}}
 .legend{position:absolute;left:10px;bottom:10px;right:10px;display:flex;flex-wrap:wrap;gap:4px 14px;background:color-mix(in srgb,var(--panel) 90%,transparent);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--muted)}
 .legend b{color:var(--ink);font-weight:500}
 .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
@@ -216,6 +243,7 @@ a{color:var(--accent)}
         <button class="btn" id="tCut" aria-pressed="true">剖切</button>
         <button class="btn" id="tFlow" aria-pressed="true">流型</button>
         <button class="btn" id="tEdr" aria-pressed="false">高能耗区</button>
+        <button class="btn" id="tCfd" aria-pressed="false" title="在剖切面上叠加 CFD 场（取 CFD 页当前显示的场）">CFD 剖面</button>
         <button class="btn" id="tBub" aria-pressed="true">气泡</button>
         <button class="btn" id="tLiq" aria-pressed="true">液体</button>
         <button class="btn" id="tDims" aria-pressed="true">尺寸</button>
@@ -267,6 +295,7 @@ a{color:var(--accent)}
     <button class="tab" role="tab" id="tab-vendor" aria-selected="false" aria-controls="p-vendor">厂商公开参数</button>
     <button class="tab" role="tab" id="tab-fit" aria-selected="false" aria-controls="p-fit">实测校准与优化</button>
     <button class="tab" role="tab" id="tab-sim" aria-selected="false" aria-controls="p-sim">批次动态模拟</button>
+    <button class="tab" role="tab" id="tab-cfd" aria-selected="false" aria-controls="p-cfd">CFD 流场仿真</button>
     <button class="tab" role="tab" id="tab-doc" aria-selected="false" aria-controls="p-doc">模型与公式</button>
   </div>
 
@@ -461,8 +490,88 @@ a{color:var(--accent)}
     </div>
   </div>
 
+  <div class="panel" id="p-cfd" role="tabpanel">
+    <div class="sim-banner" id="cfdBanner">过轴纵截面的二维 Lattice-Boltzmann 求解当前工况的平均流场，再在流场上计算混合、气泡、局部 kLa 与溶氧分布。点击“运行 CFD”开始。</div>
+    <div class="card cfd-bar">
+      <div class="chips" id="cfdFields" role="group" aria-label="显示的场">
+        <button class="btn" data-f="spd" aria-pressed="true">速度 + 流线</button>
+        <button class="btn" data-f="eps" aria-pressed="false">能量耗散率 ε</button>
+        <button class="btn" data-f="eta" aria-pressed="false">Kolmogorov η</button>
+        <button class="btn" data-f="hold" aria-pressed="false">气含率 + 气泡轨迹</button>
+        <button class="btn" data-f="kla" aria-pressed="false">局部 kLa</button>
+        <button class="btn" data-f="DO" aria-pressed="false">溶氧 DO</button>
+        <button class="btn" data-f="mix" aria-pressed="false">示踪剂混合</button>
+      </div>
+      <div class="cfd-opts">
+        <label>网格 <select id="cfdQ"></select></label>
+        <label>示踪剂加入 <select id="cfdInj"><option value="top">液面（顶部加料）</option><option value="imp">液下 · 叶轮排出区</option><option value="wall">罐壁中部</option></select></label>
+        <label>细胞直径 µm <input id="cfdCell" type="number" step="1" min="5"></label>
+        <label>微泡初始粒径 mm <input id="cfdDM" type="number" step="0.1" min="0" title="0 = 按孔径用 Tate 式自动估算"></label>
+        <label>大泡初始粒径 mm <input id="cfdDA" type="number" step="0.5" min="0" title="0 = 按孔径用 Tate 式自动估算"></label>
+        <label class="check" style="margin:0"><input type="checkbox" id="cfdLines" checked> 流线</label>
+        <button class="btn primary" id="cfdRun">运行 CFD</button>
+        <button class="btn primary" id="cfdAB" title="用“放大 / 场地转移”页的源工厂与恒 kLa 目标工况各算一次（快速网格）">A 厂 vs B 厂对比</button>
+      </div>
+      <div id="cfdProg" class="cfd-prog" hidden><i id="cfdBar"></i></div>
+      <div class="hint" id="cfdStage" style="margin:4px 0 0">尚未运行。快速网格约 10 秒（手机上更久），计算在后台线程进行，页面可继续操作。</div>
+    </div>
+    <div class="cfd-grid">
+      <div class="card cfd-view" id="cfdView">
+        <canvas id="cfdCanvas" aria-label="CFD 截面场图"></canvas>
+        <div class="cfd-cbar" id="cfdCbar"></div>
+        <div class="row" style="margin-top:6px"><button class="btn" id="cfdPlay" hidden>播放混合过程</button></div>
+        <div class="cfd-read" id="cfdRead">将鼠标移到场图上读取局部数值。</div>
+      </div>
+      <div class="cfd-side">
+        <div class="hero cfd-kpi" id="cfdKpi"></div>
+        <div class="card doc" style="margin-top:12px"><h3>CFD 判据检查</h3><ul class="checks" id="cfdChecks"></ul></div>
+        <div class="card doc" style="margin-top:12px"><h3>气泡（拉格朗日追踪）</h3><table class="ctbl" id="cfdGas"></table></div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:12px">
+      <div class="card chart-card"><h2>能量耗散率体积分布</h2><p>横轴为局部 EDR，纵轴为低于该值的体积占比。虚线为 CHO 细胞文献阈值；红点为叶轮区峰值（网格峰值与文献 ε_max = C·N³D² 的较大者）。</p><div class="chart" id="cfdC1"></div></div>
+      <div class="card chart-card"><h2>示踪剂混合曲线</h2><p>三个探头（底部、中部、顶部）的归一化浓度；绿色带为 ±5%，t95 为全部探头进入并保持在带内的时间。</p><div class="chart" id="cfdC2"></div></div>
+      <div class="card chart-card"><h2>溶氧体积分布</h2><p>DO 探头闭环到设定值后，全罐溶氧的体积分布；红色柱为低于 20% 空气饱和的区域。</p><div class="chart" id="cfdC3"></div></div>
+      <div class="card doc">
+        <h2>行业做法与本模型的位置</h2>
+        <ul class="cfd-src">
+          <li><b>勃林格殷格翰</b>与汉堡工业大学用 M-Star（Lattice-Boltzmann 大涡模拟）做生物反应器设备表征，并以实验验证；其波浪式反应器 kLa 研究用 Higbie 渗透理论、以 Kolmogorov 尺度定义接触时间——本模型的局部 kL 采用同一思路。<a href="https://mstarcfd.com/?p=2435" target="_blank" rel="noopener">M-Star</a> · <a href="https://www.frontiersin.org/articles/10.3389/fbioe.2025.1688774/full" target="_blank" rel="noopener">Frontiers 2025</a></li>
+          <li><b>Thermo Fisher</b> HyPerforma S.U.B. 100/500 L 的灌流放大用 LB-LES 评估混合效率；<b>Cytiva</b> Xcellerex XDR-10 有 Euler–Euler / Euler–Lagrange（OpenFOAM）的 kLa、混合时间、涡与剪切表征；<b>Sartorius</b> 用 CFD 证明 Flexsafe Pro 混合袋无持久死区。<a href="https://www.frontiersin.org/articles/10.3389/fceng.2023.1076509/full" target="_blank" rel="noopener">Frontiers 2023</a> · <a href="https://avestia.com/MHMT2020_Proceedings/files/paper/ICMFHT/ICMFHT_185.pdf" target="_blank" rel="noopener">MHMT 2020</a> · <a href="https://acc.making.com/wp-content/uploads/2024/09/Sartorius_AG_7705_brochure.pdf" target="_blank" rel="noopener">Sartorius</a></li>
+          <li><b>DECHEMA 一次性技术专家组</b>（2016）把流型、速度分布、功率、混合时间、停留时间分布、kLa 与能量耗散率列为可由 CFD 确定的参数。<a href="https://dechema.de:443/dechema_media/Downloads/Positionspapiere/SingleUse_ProcessEngineeringCaracterisation_2016.pdf" target="_blank" rel="noopener">DECHEMA</a></li>
+          <li><b>细胞阈值</b>：CHO 在 EDR ≥ 6×10⁴ W/m³ 时出现糖基化偏移（Godoy-Silva 2009）；研究株在 2.9×10⁵ W/m³ 停止生长；单次暴露的致死范围约 10⁶–10⁸ W/m³（Chalmers 课题组）。<a href="https://zendy.io/title/10.1002/bit.22339" target="_blank" rel="noopener">Biotechnol Bioeng</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5678173" target="_blank" rel="noopener">Sci Rep 2017</a></li>
+          <li><b>叶轮区峰值</b>：ε_max/(N³D²) 约 Rushton 7–11、45° 斜叶 ≈2.4、推进式 1.1–1.8（LDA/PIV 测量汇总）。<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4015722/table/t0015" target="_blank" rel="noopener">Chem Eng Sci 2014</a></li>
+        </ul>
+        <h3>本模型的边界</h3>
+        <ul class="cfd-src">
+          <li>是过轴纵截面的二维降阶 CFD（D2Q9 TRT 格子 Boltzmann）：叶轮用体积力表示，湍流用混合长 ℓ = 0.07·D 闭合；速度由叶轮推力换算，用一个全局常数 C_T = 2.2 标定（六种预设的混合时间与关联式之比几何平均 ≈ 0.85）。体积统计按以罐轴为中心的圆环加权。不解析叶片尾涡、切向旋流与液面漩涡，叶轮区峰值 EDR 以文献系数补足。</li>
+          <li>偏心、斜插与底装磁力搅拌（XDR、S.U.B.）是强三维流动，本模型按等效中心安装求解（偏心的作用近似为挡板），宜作方案间相对比较；3D 剖面贴图同样显示等效中心流场。</li>
+          <li>气泡羽流以浮力（ρ·g·气体体积）驱动液相，与叶轮推力按物理比值叠加；气泡轨迹为单向耦合，含 Hinze 破碎、不含聚并。局部 kLa、混合时间与关联式差异在 0.3–2 倍内属正常量级。</li>
+          <li>用于方案筛选、场地转移风险识别和指导实验；GMP 申报或设备选型定案前，应以三维 CFD（M-Star、Fluent、OpenFOAM）或实测混合时间、kLa 验证。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card doc" id="cfdABcard" style="margin-top:12px" hidden>
+      <h2>A 厂 vs B 厂：CFD 对比（快速网格）</h2>
+      <p class="hint">A 厂取“放大 / 场地转移”页的源工厂，B 厂取该页按“恒 kLa”算出的目标工况；介质、细胞与通气组成取主面板。</p>
+      <table class="ctbl" id="cfdABt"></table>
+      <ul class="cfd-src" id="cfdABn" style="margin-top:8px"></ul>
+    </div>
+  </div>
+
   <div class="panel" id="p-doc" role="tabpanel">
     <div class="model-doc">
+      <div class="card doc">
+        <h2>CFD 降阶模型（“CFD 流场仿真”页）</h2>
+        <ol>
+          <li><b>流场</b>：过轴纵截面 D2Q9 格子 Boltzmann，TRT 碰撞（Λ = 3/16），Guo 体积力；叶轮为作动盘体积力（按叶轮类型给排出角），气泡羽流按浮力 ρ·g·V_gas 与叶轮推力的物理比值叠加。湍流闭合为混合长 <div class="eq">ν_t = ℓ²|S|，ℓ = 0.07·D</div>粗网格先算到准稳态再插值到细网格并做时间平均；中心安装时做轴线镜像平均。</li>
+          <li><b>速度标定</b>：叶轮推力 T = (4/π)·ρ·Nq²·N²·D⁴（径流 5/π），格子力换算 a = a_lat·s_u²/dx，<div class="eq">s_u = C_T·√(T·dx / (ρ·Σa_lat·dV))，C_T = 2.2</div>C_T 全局唯一，由六种预设的混合时间与关联式比较标定。<span class="tag">标定常数</span></li>
+          <li><b>能量耗散</b>：ε 场形状取 2ν_t|S|²，按 Σε·ρ·dV = Pg + P_gas 归一；叶轮区峰值取网格峰值与文献 ε_max = C·N³D² 的较大者（C：Rushton 9、斜叶 2.4、推进式 1.5）。Kolmogorov η = (ν³/ε)^¼。</li>
+          <li><b>混合</b>：示踪剂在平均流场上做有限体积输运（TVD van Leer），湍流扩散 D_t = ν_t/0.7；t95 为三个探头全部进入并保持 ±5% 的时间。</li>
+          <li><b>气泡与 kLa</b>：拉格朗日气泡 = 液相速度 + 终端速度（Schiller–Naumann，上限 Mendelson）+ 湍流随机游走；局部 ε 超过 Hinze 判据 d_max = 0.725(σ/ρ)^0.6 ε^−0.4 时破碎。初始粒径默认按 Tate 式 d = (6 d₀ σ / ρg)^⅓。局部 <div class="eq">kL = (2/√π)·√D_O₂·(ε/ν)^¼，a = 6·ε_g/d</div></li>
+          <li><b>溶氧</b>：C = m + C′，m 由全罐氧平衡给出，C′ 在流场上松弛；耗氧按 Monod 饱和；进气 O₂ 倍率由“探头处 DO = 设定值”反解（模拟 DO 串级控制）。局部 C* 计入静压与各类气泡的平推流有效 O₂ 分数。</li>
+          <li><b>验证</b>：Poiseuille 解析解（平面 0.0%、轴对称 1.5%）、能量守恒、对称性、混合终态、DO 闭环与气泡终端速度见 tests/cfd.test.js。</li>
+        </ol>
+      </div>
       <div class="card doc">
         <h2>计算链</h2>
         <ol>
@@ -878,7 +987,7 @@ function renderResults(r){
   const edrC=r.edrMax/p.edrMax;
   $("legend").innerHTML=`<span><b>${fmt(p.vol,0)} L</b> · T ${fmt(r.T*1000,0)} · H ${fmt(r.H*1000,0)} · D ${fmt(r.D*1000,0)} mm · ${fmt(p.rpm,0)} rpm</span>`+
    `<span><i class="sw" style="background:#ffffff;border:1px solid #9aa"></i>微泡</span><span><i class="sw" style="background:#9fd3ff"></i>大泡</span><span><i class="sw" style="background:#2f8f6b"></i>流型示踪</span>`+
-   `<span><i class="sw" style="background:${edrC<0.1?"#2f9e6b":edrC<1?"#e0a030":"#d0453a"}"></i>叶轮区能耗 ${edrC<0.1?"低":edrC<1?"中":"高"}</span><span>拖动旋转 · 滚轮缩放</span>`;
+   `<span><i class="sw" style="background:${edrC<0.1?"#2f9e6b":edrC<1?"#e0a030":"#d0453a"}"></i>叶轮区能耗 ${edrC<0.1?"低":edrC<1?"中":"高"}</span><span>拖动旋转 · 滚轮缩放</span>`+cfdLegend();
 }
 
 /* ===== SVG 图表 ===== */
@@ -1214,7 +1323,7 @@ function renderVendor(){
 /* ===== 三维 ===== */
 const canvas=$("scene");
 let renderer,scene,camera,controls,root,spinners=[],bubbleSets=[],tracers=null,fx=[],current=null,sceneBox={top:3,bottom:0,width:2};
-const flags={cut:true,flow:true,edr:false,bub:true,liq:true,dims:true,lbl:true,anim:!matchMedia("(prefers-reduced-motion: reduce)").matches,state:"run"};
+const flags={cut:true,flow:true,edr:false,cfd:false,bub:true,liq:true,dims:true,lbl:true,anim:!matchMedia("(prefers-reduced-motion: reduce)").matches,state:"run"};
 const STATE_INFO={
   run:{ss:"培养：夹套通温控水，微泡分布器供氧，大泡分布器去 CO₂，排气经冷凝器与加热过滤器，背压阀维持罐压。",su:"培养：袋内一次性叶轮与分布器，支撑罐夹套控温，排气过滤器带加热套防冷凝堵塞。"},
   cip:{ss:"CIP：喷淋球把碱液、酸液与 WFI 喷向封头和罐壁，液膜沿罐壁流下，经罐底阀回 CIP 站；喷淋覆盖率需验证。",su:""},
@@ -1589,6 +1698,7 @@ function buildScene(r){
     add(dimLine(V3(-R*0.8,0,-R*0.15),V3(-R*0.8,ys[0],-R*0.15),c,`C ${fmt(ys[0]*1000,0)}`,s,V3(-s*2.2,0,0)));
     if(ys.length>1) add(dimLine(V3(xAt(ys[1])+D*0.65,ys[0],0),V3(xAt(ys[1])+D*0.65,ys[1],0),c,`S ${fmt((ys[1]-ys[0])*1000,0)}`,s,V3(s*2.2,0,0)));
   }
+  if(flags.cfd&&state==="run") addCfdOverlay(r,Hl,add);
   buildCallouts(flags.lbl?labels:[]);
   scene.background=new THREE.Color(css("--scene-bg"));
   sceneBox={top:driveTop,bottom:floorY,width:su?T*1.3:T*1.3+1.2,Hl};
@@ -1999,7 +2109,7 @@ buildForm(); writeForm();
 const sel=$("preset"); sel.innerHTML=Object.keys(PRESETS).map(k=>`<option value="${k}">${PRESETS[k].name}</option>`).join(""); sel.value="xdr2000"; $("presetNote").textContent=PRESETS.xdr2000.note;
 sel.addEventListener("change",()=>applyPreset(sel.value));
 const tog=(id,k)=>$(id).addEventListener("click",()=>{ flags[k]=!flags[k]; $(id).setAttribute("aria-pressed",flags[k]); if(k!=="anim") update(false); });
-[["tCut","cut"],["tFlow","flow"],["tEdr","edr"],["tBub","bub"],["tLiq","liq"],["tDims","dims"],["tLbl","lbl"],["tAnim","anim"]].forEach(a=>{ tog(a[0],a[1]); $(a[0]).setAttribute("aria-pressed",flags[a[1]]); });
+[["tCut","cut"],["tFlow","flow"],["tEdr","edr"],["tCfd","cfd"],["tBub","bub"],["tLiq","liq"],["tDims","dims"],["tLbl","lbl"],["tAnim","anim"]].forEach(a=>{ tog(a[0],a[1]); $(a[0]).setAttribute("aria-pressed",flags[a[1]]); });
 $("vFront").onclick=()=>setView("front"); $("vIso").onclick=()=>setView("iso"); $("vTop").onclick=()=>setView("top");
 document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
   document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x===t));
@@ -2007,6 +2117,7 @@ document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
   if(t.id==="tab-space") renderSpace(current);
   if(t.id==="tab-fit"&&!fitResult){ $("optVCD").value=S.vcd; runFit(); }
   if(t.id==="tab-sim"&&!simLast) runSim();
+  if(t.id==="tab-cfd"){ if(cfdLast) renderCfd(); else if(!cfdBusy) runCfd(); }
   if(t.id==="tab-imp"){ initGallery(); renderImpDetail(); renderImpCompare(); } if(gal) gal.active=(t.id==="tab-imp");
 }));
 $("suGas").addEventListener("change",renderScale);
@@ -2028,6 +2139,768 @@ function syncStateButtons(){ const su=S.material==="su"; if(su&&(flags.state==="
   document.querySelectorAll(".btn.st").forEach(b=>{ const st=b.dataset.st; b.disabled=su&&(st==="cip"||st==="sip"); b.title=b.disabled?"一次性袋为伽马辐照预灭菌，不做 CIP/SIP":""; b.setAttribute("aria-pressed",flags.state===st); }); }
 document.querySelectorAll(".btn.st").forEach(b=>b.addEventListener("click",()=>{ if(b.disabled) return; flags.state=b.dataset.st; syncStateButtons(); update(false); }));
 $("material").addEventListener("change",()=>{ syncStateButtons(); });
+/* ===== CFD 核心：二维截面 Lattice-Boltzmann 大涡模拟（D2Q9 · BGK · Smagorinsky） =====
+   纯函数、无 DOM，可在 Web Worker 中运行。思路与 M-Star 类 LB-LES 相同，但为降阶版：
+   · 求解过包轴的纵向截面（x–y 平面），叶轮用体积力（actuator）表示，气泡羽流按功率比加浮力；
+   · 时间平均流场按叶轮排出速度（Nq·N·D）换算到物理单位，ε 场按能量守恒（Σε·dV = Pg + P_gas）标定；
+   · 在物理流场上做示踪剂混合、拉格朗日气泡（Hinze 破碎）、局部 kLa（Higbie + Kolmogorov 接触时间）与溶氧分布。 */
+function CFDCORE(){
+const CX=[0,1,0,-1,0,1,-1,-1,1], CY=[0,0,1,0,-1,1,1,-1,-1], WT=[4/9,1/9,1/9,1/9,1/9,1/36,1/36,1/36,1/36];
+const OPP=[0,3,4,1,2,7,8,5,6], MIRY=[0,1,4,3,2,8,7,6,5];
+const G=9.81, SQ2=Math.SQRT2;
+
+/* 网格与几何：x ∈ [−R, R]，y 从罐底最低点向上到液面 */
+function makeGrid(cfg,nx){
+  const R=cfg.T/2, dx=cfg.T/nx, ny=Math.max(10,Math.round(cfg.Hl/dx)), N=nx*ny;
+  const solid=new Uint8Array(N), xc=new Float64Array(nx), yc=new Float64Array(ny), wv=new Float64Array(N);
+  for(let i=0;i<nx;i++) xc[i]=-R+(i+0.5)*dx;
+  for(let j=0;j<ny;j++) yc[j]=(j+0.5)*dx;
+  let vol=0;
+  for(let j=0;j<ny;j++) for(let i=0;i<nx;i++){
+    const c=j*nx+i, rr=Math.abs(xc[i])/R, yb=cfg.hd>0?cfg.hd*(1-Math.sqrt(Math.max(0,1-rr*rr))):0;
+    if(yc[j]<yb) solid[c]=1; else { wv[c]=Math.PI*Math.max(Math.abs(xc[i]),dx/4)*dx*dx; vol+=wv[c]; }
+  }
+  return {nx,ny,N,dx,R,solid,xc,yc,wv,vol};
+}
+function streamTable(g){
+  const {nx,ny,N,solid}=g, dest=new Int32Array(N*9).fill(-1);
+  for(let j=0;j<ny;j++) for(let i=0;i<nx;i++){
+    const c=j*nx+i; if(solid[c]) continue;
+    for(let k=0;k<9;k++){
+      const ni=i+CX[k], nj=j+CY[k];
+      if(g.periodic&&(nj>=ny||nj<0)){ const wj=(nj+ny)%ny; dest[c*9+k]=(ni<0||ni>=nx||solid[wj*nx+ni])?c*9+OPP[k]:(wj*nx+ni)*9+k; continue; }
+      if(nj>=ny){ const mi=ni; dest[c*9+k]=(mi>=0&&mi<nx&&!solid[j*nx+mi])?(j*nx+mi)*9+MIRY[k]:c*9+OPP[k]; }  // 液面：自由滑移
+      else if(ni<0||ni>=nx||nj<0||solid[nj*nx+ni]) dest[c*9+k]=c*9+OPP[k];                                  // 罐壁：半程反弹
+      else dest[c*9+k]=(nj*nx+ni)*9+k;
+    }
+  }
+  return dest;
+}
+/* 叶轮体积力与气泡羽流浮力的空间分布（单位幅值） */
+function forcePatterns(cfg,g){
+  const {nx,ny,N,dx,xc,yc,solid}=g;
+  const Fx=new Float64Array(N), Fy=new Float64Array(N), Gx=new Float64Array(N), Gy=new Float64Array(N), zone=new Uint8Array(N);
+  const ta=Math.sin(cfg.tilt||0), tc=Math.cos(cfg.tilt||0);
+  cfg.imps.forEach((im,idx)=>{
+    const hz=Math.max(1.05*dx,(im.radial?0.11:0.085)*im.D), th=im.angle*Math.PI/180, sg=im.up?1:-1, wt=im.Nq*im.Nq;
+    for(let j=0;j<ny;j++){ const dy=yc[j]-im.y; if(Math.abs(dy)>hz) continue;
+      for(let i=0;i<nx;i++){ const c=j*nx+i; if(solid[c]) continue;
+        const r=xc[i]-im.x, ar=Math.abs(r); if(ar>im.D/2+0.5*dx) continue;
+        zone[c]=idx+1;
+        const rn=ar/(im.D/2);
+        const pr=im.radial?(rn>0.42?1:0):Math.min(1,Math.max(0,(rn-0.15)/0.6));
+        if(!pr) continue;
+        const s=r>=0?1:-1, ra=Math.sin(th)*s, ax=sg*Math.cos(th);
+        // 轴向分量沿叶轮轴（可倾斜），径向分量垂直于轴
+        Fx[c]+=wt*pr*(ax*ta+ra*tc); Fy[c]+=wt*pr*(ax*tc-ra*ta);
+      }
+    }
+  });
+  (cfg.plumes||[]).forEach(pl=>{
+    // 羽流柱放在距轴线 ≥ 3 格处并加宽到 ≥ 0.06·T：轴线截断区内的竖直体积力会激发轴对称源项的虚假自持流动
+    const wp=Math.max(1.5*dx,pl.w,0.06*cfg.T), px=(cfg.axi===false)?pl.x:Math.sign(pl.x||1)*Math.max(Math.abs(pl.x),3*dx+wp);
+    for(let j=0;j<ny;j++){ if(yc[j]<pl.y) continue;
+      for(let i=0;i<nx;i++){ const c=j*nx+i; if(solid[c]) continue; const d=Math.abs(xc[i]-px); if(d>wp) continue;
+        Gy[c]+=pl.q*(1-0.5*d/wp)/wp; }
+    }
+  });
+  return {Fx,Fy,Gx,Gy,zone};
+}
+
+/* ---------- LBM 求解 ----------
+   轴对称修正（伪笛卡尔，Halliday 等 2001 思路）：在截面平面 LBM 上加入
+   质量源 m = −ρ·u_r/r（同时携带动量 m·u）与黏性附加力 F_x = ρν(∂u_x/∂x/x − u_x/x²)、F_y = ρν(∂u_y/∂x)/x，
+   使截面解满足 (r,z) 轴对称不可压方程，射流沿径向扩展时速度按 1/r 衰减。 */
+function lbmRun(cfg,g,opt,init,progress,pBase,pSpan){
+  const {nx,ny,N,solid,wv,xc}=g, dest=streamTable(g), FP=forcePatterns(cfg,g);
+  const LAM=3/16, nu0=opt.nu0||0.004, tau0=0.5+3*nu0, K18=18*SQ2*(opt.Cs||0.16)**2, uT=opt.uT||0.08, axi=opt.axi!==false;
+  let f=new Float64Array(N*9), ft=new Float64Array(N*9);
+  const ux=new Float64Array(N), uy=new Float64Array(N), rh=new Float64Array(N).fill(1), epsI=new Float64Array(N), nuE=new Float64Array(N).fill(nu0);
+  const AX=new Float64Array(N), AY=new Float64Array(N), MS=new Float64Array(N), ix=new Float64Array(nx);
+  for(let i=0;i<nx;i++){ const xl=xc[i]/g.dx; ix[i]=1/(Math.sign(xl)*Math.max(Math.abs(xl),opt.clamp||1)); }   // 1/x（格子单位；轴对称模式为可选项，默认求解用平面截面）
+  for(let c=0;c<N;c++){ if(solid[c]) continue; const vx=init?init.ux[c]:0, vy=init?init.uy[c]:0, u2=vx*vx+vy*vy; ux[c]=vx; uy[c]=vy;
+    for(let k=0;k<9;k++){ const cu=CX[k]*vx+CY[k]*vy; f[c*9+k]=WT[k]*(1+3*cu+4.5*cu*cu-1.5*u2); } }
+  // 气泡羽流浮力 / 叶轮推力（物理比值，固定）：F_gas = ρ·g·Σ Q·(液面 − 分布器)/u_b，u_b 取气泡终端速度 + 0.05 m/s；
+  // 叶轮推力 T = (4/π 或 5/π)·ρ·Nq²·N²·D⁴。格子中按两类体积力图样的总量换算出 kG = aG/aI。
+  let fm0=0, gm0=0; for(let c=0;c<N;c++) if(!solid[c]){ fm0+=wv[c]*Math.hypot(FP.Fx[c],FP.Fy[c]); gm0+=wv[c]*FP.Gy[c]; }
+  const Timp=(cfg.imps||[]).reduce((a,im)=>a+(im.radial?5:4)/Math.PI*(cfg.rho||1000)*im.Nq*im.Nq*(cfg.N||0)**2*im.D**4,0);
+  const Fgas=(cfg.gas||[]).reduce((a,cl)=>a+(cfg.rho||1000)*G*cl.Q*cl.src.reduce((h,sr)=>h+Math.max(0,cfg.Hl-sr.y),0)/cl.src.length/(bubbleUt(cl.d0,cfg.nu,cfg.rho,cfg.sigma)+0.05),0);
+  // 轴对称求解中羽流体积力会激发虚假自持流动，默认不加（cfg.plumeForce 可开启）；通气功率仍计入 ε 能量平衡
+  const kG=(cfg.plumeForce&&Timp>0&&gm0>0)?Math.min(50,Fgas/Timp*fm0/gm0):0;
+  let aI=init?init.aI:1e-4, aG=kG*aI;
+  const su=new Float64Array(N), sv=new Float64Array(N), suu=new Float64Array(N), svv=new Float64Array(N), se=new Float64Array(N), sn=new Float64Array(N);
+  let nAvg=0; const steps=opt.steps, avgFrom=opt.avgFrom, bodyY=opt.bodyY||0, PFx=FP.Fx, PFy=FP.Fy, PGy=FP.Gy;
+  for(let it=0;it<steps;it++){
+    if(axi){
+      for(let j=0;j<ny;j++) for(let i=0;i<nx;i++){ const c=j*nx+i; if(solid[c]) continue;
+        const l=(i>0&&!solid[c-1])?c-1:-1, r=(i+1<nx&&!solid[c+1])?c+1:-1;
+        const uxl=l>=0?ux[l]:-ux[c], uxr=r>=0?ux[r]:-ux[c], uyl=l>=0?uy[l]:-uy[c], uyr=r>=0?uy[r]:-uy[c];
+        // 源项用 1-2-1 平滑速度，抑制显式 1/x 源项引起的奇偶振荡
+        const dux=0.5*(uxr-uxl), duy=0.5*(uyr-uyl), q=ix[i], nr=rh[c]*Math.min(nuE[c],0.06), uxs=0.25*uxl+0.5*ux[c]+0.25*uxr;
+        AX[c]=nr*(dux*q-uxs*q*q); AY[c]=nr*duy*q; MS[c]=-rh[c]*uxs*q;
+      }
+    }
+    let umax=0, pI=0, pG=0;
+    for(let c=0;c<N;c++){
+      if(solid[c]) continue;
+      const b=c*9;
+      const f0=f[b],f1=f[b+1],f2=f[b+2],f3=f[b+3],f4=f[b+4],f5=f[b+5],f6=f[b+6],f7=f[b+7],f8=f[b+8];
+      const rho=f0+f1+f2+f3+f4+f5+f6+f7+f8;
+      const FIx=aI*PFx[c], FIy=aI*PFy[c], FGy=aG*PGy[c];
+      const ms=MS[c], ux0=ux[c], uy0=uy[c];
+      const Fx=FIx+AX[c]+ms*ux0, Fy=FIy+FGy+AY[c]+ms*uy0+bodyY;   // 质量源携带的动量以体积力加入
+      const vx=(f1-f3+f5-f6-f7+f8+0.5*Fx)/rho, vy=(f2-f4+f5+f6-f7-f8+0.5*Fy)/rho;
+      ux[c]=vx; uy[c]=vy; rh[c]=rho;
+      const sp=vx*vx+vy*vy; if(sp>umax) umax=sp;
+      pI+=wv[c]*(FIx*vx+FIy*vy); pG+=wv[c]*FGy*vy;
+      const u2=1.5*(vx*vx+vy*vy), r9=rho*4/9, r1=rho/9, r36=rho/36;
+      const e0=r9*(1-u2);
+      const c1=vx, e1=r1*(1+3*c1+4.5*c1*c1-u2);
+      const c2=vy, e2=r1*(1+3*c2+4.5*c2*c2-u2);
+      const c3=-vx, e3=r1*(1+3*c3+4.5*c3*c3-u2);
+      const c4=-vy, e4=r1*(1+3*c4+4.5*c4*c4-u2);
+      const c5=vx+vy, e5=r36*(1+3*c5+4.5*c5*c5-u2);
+      const c6=-vx+vy, e6=r36*(1+3*c6+4.5*c6*c6-u2);
+      const c7=-vx-vy, e7=r36*(1+3*c7+4.5*c7*c7-u2);
+      const c8=vx-vy, e8=r36*(1+3*c8+4.5*c8*c8-u2);
+      const n0=f0-e0,n1=f1-e1,n2=f2-e2,n3=f3-e3,n4=f4-e4,n5=f5-e5,n6=f6-e6,n7=f7-e7,n8=f8-e8;
+      const Pxx=n1+n3+n5+n6+n7+n8+Fx*vx, Pyy=n2+n4+n5+n6+n7+n8+Fy*vy, Pxy=n5-n6+n7-n8+0.5*(Fx*vy+Fy*vx);   // Guo 力项修正后的非平衡应力
+      const Qn=Math.sqrt(Pxx*Pxx+Pyy*Pyy+2*Pxy*Pxy);
+      const tau=0.5*(tau0+Math.sqrt(tau0*tau0+K18*Qn/rho)), om=1/tau, omm=1/(LAM/(tau-0.5)+0.5), kfp=1-0.5*om, kfm=1-0.5*omm, mr=kfp*ms;   // TRT：Λ = 3/16 使半程反弹壁面位置与黏度无关
+      epsI[c]=1.5*(tau-0.5)*Qn*Qn/(rho*rho*tau*tau); nuE[c]=(tau-0.5)/3;
+      const uF=vx*Fx+vy*Fy;
+      const p0=n0;
+      const p1=0.5*(n1+n3), m1=0.5*(n1-n3);
+      const p2=0.5*(n2+n4), m2=0.5*(n2-n4);
+      const p5=0.5*(n5+n7), m5=0.5*(n5-n7);
+      const p6=0.5*(n6+n8), m6=0.5*(n6-n8);
+      ft[dest[b+0]]=f0-om*p0+4/9*(kfp*(-3*uF)+kfm*0+mr);
+      ft[dest[b+1]]=f1-om*p1-omm*m1+1/9*(kfp*(-3*uF+9*c1*(Fx))+kfm*3*(Fx)+mr);
+      ft[dest[b+2]]=f2-om*p2-omm*m2+1/9*(kfp*(-3*uF+9*c2*(Fy))+kfm*3*(Fy)+mr);
+      ft[dest[b+3]]=f3-om*p1+omm*m1+1/9*(kfp*(-3*uF+9*c3*(-Fx))+kfm*3*(-Fx)+mr);
+      ft[dest[b+4]]=f4-om*p2+omm*m2+1/9*(kfp*(-3*uF+9*c4*(-Fy))+kfm*3*(-Fy)+mr);
+      ft[dest[b+5]]=f5-om*p5-omm*m5+1/36*(kfp*(-3*uF+9*c5*(Fx+Fy))+kfm*3*(Fx+Fy)+mr);
+      ft[dest[b+6]]=f6-om*p6-omm*m6+1/36*(kfp*(-3*uF+9*c6*(-Fx+Fy))+kfm*3*(-Fx+Fy)+mr);
+      ft[dest[b+7]]=f7-om*p5+omm*m5+1/36*(kfp*(-3*uF+9*c7*(-Fx-Fy))+kfm*3*(-Fx-Fy)+mr);
+      ft[dest[b+8]]=f8-om*p6+omm*m6+1/36*(kfp*(-3*uF+9*c8*(Fx-Fy))+kfm*3*(Fx-Fy)+mr);
+    }
+    const tmp=f; f=ft; ft=tmp;
+    umax=Math.sqrt(umax);
+    if(!isFinite(umax)||umax>0.4) throw new Error("LBM 发散（格子速度 "+umax.toFixed(3)+"）");
+    // 幅值控制：公共幅值 aI 使最大格子速度 ≈ uT；气泡浮力与叶轮推力之比 kG 由物理量固定（见上）
+    if(!opt.bodyY&&it<avgFrom&&it%100===99){
+      aI*=Math.min(1.25,Math.max(0.8,uT/Math.max(umax,1e-6))); aG=kG*aI;
+    }
+    if(it>=avgFrom){ nAvg++; for(let c=0;c<N;c++){ if(solid[c]) continue; const a=ux[c], v=uy[c]; su[c]+=a; sv[c]+=v; suu[c]+=a*a; svv[c]+=v*v; se[c]+=epsI[c]; sn[c]+=nuE[c]; } }
+    if(progress&&it%250===0){ let snap=null; if(it%1500===0){ const sp=new Float32Array(N); for(let c=0;c<N;c++) sp[c]=solid[c]?-1:Math.hypot(ux[c],uy[c]); snap={nx,ny,sp}; } progress(pBase+pSpan*it/steps,"流场求解（"+nx+"×"+ny+"）",snap); }
+  }
+  const inv=1/Math.max(1,nAvg);
+  for(let c=0;c<N;c++){ su[c]*=inv; sv[c]*=inv; suu[c]=Math.max(0,suu[c]*inv-su[c]*su[c]); svv[c]=Math.max(0,svv[c]*inv-sv[c]*sv[c]); se[c]*=inv; sn[c]*=inv; }
+  let fm=0; for(let c=0;c<N;c++) if(!solid[c]) fm+=wv[c]*Math.hypot(PFx[c],PFy[c]);
+  return {ux:su,uy:sv,vx2:suu,vy2:svv,eps:se,nut:sn,zone:FP.zone,aI,aG,fmag:fm};
+}
+function prolong(gc,gf,res){
+  const ux=new Float64Array(gf.N), uy=new Float64Array(gf.N);
+  for(let j=0;j<gf.ny;j++) for(let i=0;i<gf.nx;i++){
+    const ic=Math.min(gc.nx-1,Math.floor(i*gc.nx/gf.nx)), jc=Math.min(gc.ny-1,Math.floor(j*gc.ny/gf.ny)), c=jc*gc.nx+ic;
+    if(gf.solid[j*gf.nx+i]) continue; ux[j*gf.nx+i]=res.ux[c]; uy[j*gf.nx+i]=res.uy[c];
+  }
+  return {ux,uy,aI:res.aI,aG:res.aG};
+}
+
+/* ---------- 物理换算 ---------- */
+function bubbleUt(d,nu,rho,sig){
+  let u=Math.min(0.5,G*d*d/(18*nu));
+  for(let k=0;k<40;k++){ const Re=Math.max(1e-6,u*d/nu), Cd=Re<1000?24/Re*(1+0.15*Math.pow(Re,0.687)):0.44; u=0.5*u+0.5*Math.sqrt(4*G*d/(3*Cd)); }
+  return Math.min(u,Math.sqrt(2*sig/(rho*d)+G*d/2));
+}
+function postFlow(cfg,g,L){
+  const {N,solid,wv,vol,dx}=g;
+  // 速度标定（推力法）：叶轮推力 T = ρ·Q·U，轴流 U = 4·Nq·N·D/π、径流 U = 5·Nq·N·D/π；
+  // 格子体积力 a_lat 换算为物理加速度 a_lat·s_u²/dx，由 Σ ρ·a·dV = T 解出速度比例 s_u。
+  // 湍流闭合的混合长取物理尺度，故驱动力给定后流速是预测值（非直接标定），可用预测的泵送数检验。
+  const Tph=cfg.imps.reduce((a,im)=>a+(im.radial?5:4)/Math.PI*cfg.rho*im.Nq*im.Nq*cfg.N**2*im.D**4,0);
+  // C_T = 2.2：二维作动盘只把三维推力的一部分转成截面内循环（其余进入切向旋流与压力场）。该常数对所有构型取同一值，
+  // 由六种预设（XDR、STR、S.U.B.、3 kL/12.5 kL/20 kL 不锈钢）标定：CFD 混合时间 / Grenville 关联式的几何平均 ≈ 0.85（单个 0.3–1.5×），平均流速 12–20% 叶尖速度。
+  const CT=cfg.CT||2.2, su=L.fmag>0&&L.aI>0?CT*Math.sqrt(Tph/cfg.rho*dx/(L.aI*L.fmag)):0;
+  // 预测泵送数：叶轮上下 ±0.25·D 范围内各水平截面上、|x−x_imp| < D/2 盘面净流量的最大值 / (N·D³)
+  const im0=cfg.imps[0]; let qn=0;
+  for(let j=0;j<g.ny;j++){ if(Math.abs(g.yc[j]-im0.y)>0.25*im0.D+dx) continue; let q=0;
+    for(let i=0;i<g.nx;i++){ const c=j*g.nx+i; if(solid[c]) continue; const x=g.xc[i]; if(Math.abs(x-im0.x)>im0.D/2) continue; q+=L.uy[c]*su*Math.PI*Math.max(Math.abs(x),dx/4)*dx; }
+    if(Math.abs(q)>Math.abs(qn)) qn=q; }
+  const NqPred=Math.abs(qn)/(cfg.N*im0.D**3);
+  const ux=new Float32Array(N), uy=new Float32Array(N), spd=new Float32Array(N), eps=new Float32Array(N), k=new Float32Array(N);
+  let eSum=0;
+  for(let c=0;c<N;c++){ if(solid[c]) continue; ux[c]=L.ux[c]*su; uy[c]=L.uy[c]*su; spd[c]=Math.hypot(ux[c],uy[c]); eSum+=wv[c]*L.eps[c]; k[c]=0.75*(L.vx2[c]+L.vy2[c])*su*su; }
+  const epsMean=(cfg.Pimp+cfg.Pgas)/(cfg.rho*cfg.V);           // W/kg，能量守恒
+  const sc=eSum>0?epsMean*vol/eSum:0;
+  for(let c=0;c<N;c++) if(!solid[c]) eps[c]=Math.max(1e-7,L.eps[c]*sc);
+  // 湍流扩散系数：格子总黏度（分子 + Smagorinsky）即平均流所用的有效湍流黏度，换算到物理单位 ν_t = ν_lat·dx·s_u；
+  // 另取可分辨脉动的 k–ε 估计 Cμk²/ε，二者取大，Sc_t = 0.7
+  const Dt=new Float32Array(N); let nutM=0;
+  for(let c=0;c<N;c++){ if(solid[c]) continue; const kk=Math.max(k[c],1e-8), nut=L.nut[c]*dx*su; nutM+=wv[c]*nut;
+    Dt[c]=Math.min(0.01,Math.max(cfg.nu*2,nut/0.7,0.09*kk*kk/eps[c]/0.7)); }
+  nutM/=vol;
+  return {su,NqPred,ux,uy,spd,eps,k,Dt,epsMean,dx,nutM,suE:Math.cbrt(epsMean*dx/Math.max(1e-30,eSum/vol))};
+}
+
+/* ---------- 标量输运（轴对称有限体积，TVD van Leer） ----------
+   单元体积 ∝ r、面面积 ∝ r_face；采用散度修正的对流形式（dc/dt = −∇·(uc) + c∇·u + ∇·(D∇c)），
+   保证均匀场保持均匀，不受截面速度场离散散度误差影响。 */
+function makeAD(g,F,axi){
+  const {nx,ny,N,solid,xc}=g, dx=F.dx, rmin=axi?dx/4:1e9;
+  const fu=new Float64Array(N), fv=new Float64Array(N), dU=new Float64Array(N), dV=new Float64Array(N), Ax=new Float64Array(nx), Vi=new Float64Array(nx);
+  for(let i=0;i<nx;i++){ Ax[i]=axi?Math.max(Math.abs(xc[i]+dx/2),rmin):1; Vi[i]=axi?Math.max(Math.abs(xc[i]),rmin)*dx:dx; }  // 轴对称：公共因子 π·dx 已约去；平面截面：面积 1、体积 dx
+  let umax=1e-9, dmax=1e-12;
+  for(let j=0;j<ny;j++) for(let i=0;i<nx;i++){ const c=j*nx+i; if(solid[c]) continue;
+    if(i+1<nx&&!solid[c+1]){ fu[c]=0.5*(F.ux[c]+F.ux[c+1]); dU[c]=0.5*(F.Dt[c]+F.Dt[c+1]); }
+    if(j+1<ny&&!solid[c+nx]){ fv[c]=0.5*(F.uy[c]+F.uy[c+nx]); dV[c]=0.5*(F.Dt[c]+F.Dt[c+nx]); }
+    umax=Math.max(umax,Math.abs(fu[c]),Math.abs(fv[c])); dmax=Math.max(dmax,dU[c],dV[c]);
+  }
+  const dt=Math.min(0.22*dx/umax,0.11*dx*dx/dmax);
+  const lim=r=>r>0?2*r/(1+r):0;
+  const flx=new Float64Array(N), fly=new Float64Array(N), qx=new Float64Array(N), qy=new Float64Array(N);
+  function step(c,out,h){
+    for(let j=0;j<ny;j++) for(let i=0;i<nx;i++){ const p=j*nx+i; flx[p]=0; fly[p]=0; qx[p]=0; qy[p]=0; if(solid[p]) continue;
+      const ri=axi?Math.max(Math.abs(xc[i]),rmin):1;
+      if(i+1<nx&&!solid[p+1]){ const u=fu[p]; let cf;
+        if(u>=0){ const cu=c[p], cd=c[p+1], cuu=(i>0&&!solid[p-1])?c[p-1]:cu, dd=cd-cu; cf=cu+(Math.abs(dd)>1e-30?0.5*lim((cu-cuu)/dd)*dd:0); }
+        else { const cu=c[p+1], cd=c[p], cuu=(i+2<nx&&!solid[p+2])?c[p+2]:cu, dd=cd-cu; cf=cu+(Math.abs(dd)>1e-30?0.5*lim((cu-cuu)/dd)*dd:0); }
+        const A=Ax[i]; flx[p]=A*(u*cf-dU[p]*(c[p+1]-c[p])/dx); qx[p]=A*u; }
+      if(j+1<ny&&!solid[p+nx]){ const v=fv[p]; let cf;
+        if(v>=0){ const cu=c[p], cd=c[p+nx], cuu=(j>0&&!solid[p-nx])?c[p-nx]:cu, dd=cd-cu; cf=cu+(Math.abs(dd)>1e-30?0.5*lim((cu-cuu)/dd)*dd:0); }
+        else { const cu=c[p+nx], cd=c[p], cuu=(j+2<ny&&!solid[p+2*nx])?c[p+2*nx]:cu, dd=cd-cu; cf=cu+(Math.abs(dd)>1e-30?0.5*lim((cu-cuu)/dd)*dd:0); }
+        fly[p]=ri*(v*cf-dV[p]*(c[p+nx]-c[p])/dx); qy[p]=ri*v; }
+    }
+    for(let j=0;j<ny;j++) for(let i=0;i<nx;i++){ const p=j*nx+i; if(solid[p]) continue;
+      let d=-flx[p]-fly[p], dv=qx[p]+qy[p]; if(i>0){ d+=flx[p-1]; dv-=qx[p-1]; } if(j>0){ d+=fly[p-nx]; dv-=qy[p-nx]; }
+      out[p]=c[p]+h*(d+c[p]*dv)/Vi[i]; }
+  }
+  return {dt,step};
+}
+function wmean(g,a){ let s=0; for(let c=0;c<g.N;c++) if(!g.solid[c]) s+=g.wv[c]*a[c]; return s/g.vol; }
+function cellAt(g,x,y){ let i=Math.max(0,Math.min(g.nx-1,Math.floor((x+g.R)/g.dx))), j=Math.max(0,Math.min(g.ny-1,Math.floor(y/g.dx)));
+  for(let s=0;s<g.ny&&g.solid[j*g.nx+i];s++) j=Math.min(g.ny-1,j+1); return j*g.nx+i; }
+
+/* 示踪剂混合：脉冲加入，记录三个探头，t95 = 所有探头最后一次离开 ±5% 带的时间 */
+function mixing(cfg,g,F,AD,progress,pBase,pSpan){
+  const {N,solid}=g; let c=new Float64Array(N), nb=new Float64Array(N);
+  const inj=cfg.inject, rad=Math.max(1.5*g.dx,0.05*cfg.T);
+  for(let p=0;p<N;p++){ if(solid[p]) continue; const x=g.xc[p%g.nx], y=g.yc[(p/g.nx)|0]; if(Math.hypot(x-inj.x,y-inj.y)<rad) c[p]=1; }
+  let tot=0; for(let p=0;p<N;p++) tot+=c[p]; if(tot===0) c[cellAt(g,inj.x,inj.y)]=1;
+  let cinf=wmean(g,c);
+  const probes=cfg.probes.map(q=>cellAt(g,q.x,q.y));
+  const tMax=cfg.tMixMax, dt=AD.dt, nSteps=Math.ceil(tMax/dt), rec=Math.max(1,Math.floor(nSteps/240)), frEvery=Math.max(1,Math.floor(nSteps/48));
+  const curves=probes.map(()=>[]), frames=[], cov=[];
+  let lastOut=0, t=0, settled=0;
+  for(let n=0;n<=nSteps;n++){
+    if(n%rec===0) cinf=wmean(g,c);
+    if(n%rec===0){ probes.forEach((p,k)=>curves[k].push([t,c[p]/cinf])); let m=wmean(g,c), v=0; for(let p=0;p<N;p++) if(!solid[p]) v+=g.wv[p]*(c[p]-m)**2; cov.push([t,Math.sqrt(v/g.vol)/m]); }
+    if(n%frEvery===0&&frames.length<50){ const fr=new Float32Array(N); for(let p=0;p<N;p++) fr[p]=c[p]/cinf; frames.push({t,c:fr}); }
+    if(probes.some(p=>Math.abs(c[p]/cinf-1)>0.05)){ lastOut=t; settled=0; } else settled+=dt;
+    if(settled>Math.max(8,0.3*lastOut)&&t>5) break;
+    AD.step(c,nb,dt); const tmp=c; c=nb; nb=tmp; t+=dt;
+    if(progress&&n%400===0) progress(pBase+pSpan*Math.min(1,t/tMax),"示踪剂混合");
+  }
+  // 体积判据：全罐 95% 体积的浓度落在 ±5% 内的时间（取 CoV 曲线 < 2.5% 的近似）
+  const t95v=(cov.find(q=>q[1]<0.025)||[NaN])[0];
+  return {t95:lastOut,t95v,curves,frames,cov,ended:t};
+}
+
+/* 拉格朗日气泡：液相平均速度 + 终端滑移速度 + 湍流随机游走；局部 ε 超过 Hinze 破碎判据时粒径减小 */
+function bubbles(cfg,g,F,progress,pBase,pSpan){
+  const {N,solid,dx}=g, hold=new Float64Array(N), area=new Float64Array(N), areaC=cfg.gas.map(()=>new Float64Array(N)), traj=[];
+  const sig=cfg.sigma, rho=cfg.rho, nu=cfg.nu, axi=cfg.axi!==false;
+  let seed=12345; const rnd=()=>{ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; };
+  const gauss=()=>{ const u=Math.max(1e-12,rnd()), v=rnd(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
+  const stats=[], dmaxC=new Float64Array(N);
+  for(let c=0;c<N;c++) dmaxC[c]=solid[c]?1:0.725*Math.pow(sig/rho,0.6)*Math.pow(F.eps[c],-0.4);   // Hinze 最大稳定气泡
+  cfg.gas.forEach((cl,ci)=>{
+    if(!(cl.Q>0)) return;
+    const nP=cfg.nParcels||300, qp=cl.Q/nP; let tRes=0, dSum=0, nBreak=0;
+    for(let n=0;n<nP;n++){
+      const src=cl.src[n%cl.src.length]; let x=src.x+(rnd()-0.5)*src.w, y=src.y, d=cl.d0, t=0, ut=bubbleUt(d,nu,rho,sig);
+      const keep=n<10; const path=keep?[[x,y]]:null;
+      for(let s=0;s<40000;s++){
+        const c=cellAt(g,x,y);
+        const vx=F.ux[c], vy=F.uy[c]+ut, D=F.Dt[c];
+        const h=Math.min(0.4*dx/Math.max(1e-4,Math.hypot(vx,vy)),0.2*dx*dx/Math.max(D,1e-9),0.5);
+        if(d>dmaxC[c]){ d=Math.max(dmaxC[c],0.25e-3); ut=bubbleUt(d,nu,rho,sig); nBreak++; }
+        hold[c]+=qp*h/g.wv[c]; const da=6*qp*h/(d*g.wv[c]); area[c]+=da; areaC[ci][c]+=da;
+        const sd=Math.sqrt(2*D*h);
+        const drift=axi?D/(Math.sign(x||1)*Math.max(Math.abs(x),dx)):0;   // 柱坐标径向随机游走的几何漂移 D/r
+        x+=(vx+drift)*h+sd*gauss(); y+=vy*h+sd*gauss(); t+=h;
+        if(Math.abs(x)>g.R-0.5*dx) x=Math.sign(x)*(g.R-0.5*dx)*2-x;
+        const yb=cfg.hd>0?cfg.hd*(1-Math.sqrt(Math.max(0,1-(x/g.R)**2))):0; if(y<yb+0.5*dx) y=yb+0.5*dx+(yb+0.5*dx-y);
+        if(keep&&s%3===0) path.push([x,y]);
+        if(y>=cfg.Hl) break;
+      }
+      if(keep){ path.push([x,Math.min(y,cfg.Hl)]); traj.push({cls:ci,pts:path}); }
+      tRes+=t; dSum+=d;
+    }
+    stats.push({name:cl.name,tRes:tRes/nP,dOut:dSum/nP,d0:cl.d0,ut0:bubbleUt(cl.d0,nu,rho,sig),broke:nBreak>0});
+    if(progress) progress(pBase+pSpan*(ci+1)/cfg.gas.length,"气泡追踪");
+  });
+  return {hold,area,areaC,traj,stats};
+}
+
+/* 局部 kLa 与溶氧分布（DO 探头处闭环到设定值） */
+function oxygen(cfg,g,F,B,AD,progress,pBase,pSpan){
+  const {N,solid,wv,vol}=g;
+  const kla=new Float64Array(N), klaC=new Float64Array(N), cst=new Float64Array(N), eta=new Float32Array(N);
+  const Dm=cfg.DO2;
+  for(let c=0;c<N;c++){ if(solid[c]) continue;
+    const kL=2/Math.sqrt(Math.PI)*Math.sqrt(Dm)*Math.pow(F.eps[c]/cfg.nu,0.25)*cfg.fmed;   // Higbie + Kolmogorov 接触时间
+    kla[c]=kL*B.area[c];
+    const y=g.yc[(c/g.nx)|0], P=(cfg.Phead+cfg.rho*G*Math.max(0,cfg.Hl-y)/1e5)/1.01325;
+    let kc=0; cfg.gas.forEach((cl,ci)=>{ kc+=kL*B.areaC[ci][c]*cfg.HO2*P*cl.yEff; }); klaC[c]=kc; cst[c]=kla[c]>0?kc/kla[c]:0;
+    eta[c]=Math.pow(cfg.nu**3/F.eps[c],0.25);
+  }
+  // 局部 C*：各气泡类的有效 O₂ 分数（平推流对数平均推动力）× 当地静压，按各类气泡的局部比表面积加权
+  let klaM=0; for(let c=0;c<N;c++) if(!solid[c]) klaM+=wv[c]*kla[c]; klaM/=vol;
+  const OUR=cfg.OUR, Ko=cfg.Ko||0.002*cfg.cAirHead;    // mol/m³/s；耗氧按 Monod 饱和（Ko ≈ 0.2 % 空气饱和）
+  const probe=cellAt(g,cfg.doProbe.x,cfg.doProbe.y);
+  // 伪时间推进：C = m + C'，m 由全罐氧平衡给出（时间尺度 1/kLa 较慢，直接取准稳态），C' 在混合时间尺度上松弛；
+  // 进气 O₂ 倍率 s 由积分控制器调节，使 DO 探头处读数 = 设定值（模拟实际 DO 串级控制）
+  let cp=new Float64Array(N), nb=new Float64Array(N), src=new Float64Array(N), m=cfg.cL, s=1;
+  const dt=AD.dt, nSteps=Math.ceil(cfg.tDO/dt);
+  for(let n=0;n<nSteps;n++){
+    let A=0,Bc=0,b=0,u=0; for(let c=0;c<N;c++) if(!solid[c]){ const C=Math.max(0,m+cp[c]); A+=wv[c]*klaC[c]; Bc+=wv[c]*kla[c]*cp[c]; b+=wv[c]*kla[c]; u+=wv[c]*OUR*C/(C+Ko); }
+    // 控制：令探头处 m + C'(探头) = 设定值，代数反解所需 s，再做一阶松弛
+    if(A>0){ const sNew=((cfg.cL-cp[probe])*b+Bc+u)/A; s=Math.max(0,Math.min(20,n?0.9*s+0.1*sNew:sNew)); }
+    m=b>0?(s*A-Bc-u)/b:0;
+    let sm=0; for(let c=0;c<N;c++) if(!solid[c]){ const C=Math.max(0,m+cp[c]); src[c]=s*klaC[c]-kla[c]*(m+cp[c])-OUR*C/(C+Ko); sm+=wv[c]*src[c]; } sm/=vol;
+    AD.step(cp,nb,dt);
+    let mm=0; for(let c=0;c<N;c++) if(!solid[c]){ nb[c]+=dt*(src[c]-sm); mm+=wv[c]*nb[c]; } mm/=vol;
+    for(let c=0;c<N;c++) if(!solid[c]) nb[c]-=mm;
+    const tmp=cp; cp=nb; nb=tmp;
+    if(progress&&n%2000===0) progress(pBase+pSpan*n/nSteps,"溶氧分布");
+  }
+  const DO=new Float32Array(N); for(let c=0;c<N;c++) if(!solid[c]) DO[c]=100*Math.max(0,m+cp[c])/cfg.cAirHead;
+  const sStar=s;
+  return {kla,klaMean:klaM,eta,DO,sStar,probe,cst};
+}
+
+/* 中心安装、无倾角时罐内平均流应关于轴线对称：对时间平均场做镜像平均（u_x 反号），消除有限平均窗口带来的偏摆 */
+function symmetrize(g,L){
+  const {nx,ny}=g;
+  for(let j=0;j<ny;j++) for(let i=0;i<nx/2;i++){ const a=j*nx+i, b=j*nx+(nx-1-i);
+    const ux=0.5*(L.ux[a]-L.ux[b]), uy=0.5*(L.uy[a]+L.uy[b]); L.ux[a]=ux; L.ux[b]=-ux; L.uy[a]=uy; L.uy[b]=uy;
+    ['vx2','vy2','eps','nut'].forEach(k=>{ const m=0.5*(L[k][a]+L[k][b]); L[k][a]=m; L[k][b]=m; }); }
+}
+/* ---------- 统计 ---------- */
+function wquant(g,a,qs){
+  const idx=[]; for(let c=0;c<g.N;c++) if(!g.solid[c]) idx.push(c);
+  idx.sort((p,q)=>a[p]-a[q]); const out=[]; let acc=0,k=0;
+  qs.forEach(q=>{ while(k<idx.length&&acc+g.wv[idx[k]]<q*g.vol){ acc+=g.wv[idx[k]]; k++; } out.push(a[idx[Math.min(k,idx.length-1)]]); });
+  return out;
+}
+function wfrac(g,pred){ let s=0; for(let c=0;c<g.N;c++) if(!g.solid[c]&&pred(c)) s+=g.wv[c]; return s/g.vol; }
+
+/* ---------- 主入口 ---------- */
+function run(cfg,progress){
+  const t0=Date.now();
+  const nx=cfg.nx||64, nc=Math.max(24,Math.round(nx/2));
+  const gc=makeGrid(cfg,nc), gf=makeGrid(cfg,nx);
+  // 格子黏度按网格缩放，使格子雷诺数（≈ 湍流有效雷诺数）与网格无关；粗网格先跑到准稳态再插值到细网格
+  // 湍流闭合：Prandtl 混合长 ν_t = ℓ_m²|S|，ℓ_m = 0.07·D（与网格无关，相当于 Smagorinsky 中 Cs·Δ = ℓ_m）。
+  // 得到稳定的雷诺平均流场；二维/轴对称 LES 会形成三维湍流中不存在的大尺度相干涡，故不采用。
+  const uT=0.08, circ=c=>Math.round(2*(c.nx+c.ny)/(0.35*uT)), lm=(cfg.lm||0.07)*cfg.imps[0].D;
+  // 稳健性：若发散，自动以较高基础黏度与更宽的轴线截断重算（记入 stats.retry）
+  let retry=0;
+  const safe=(g,o,init,a,b)=>{ try{ return lbmRun(cfg,g,o,init,progress,a,b); }catch(e){ retry++; return lbmRun(cfg,g,Object.assign({},o,{nu0:0.006,clamp:5,uT:0.06}),init,progress,a,b); } };
+  const Lc=safe(gc,{steps:3*circ(gc),avgFrom:Math.round(2.4*circ(gc)),uT,axi:cfg.axi,nu0:0.002,Cs:lm/gc.dx},null,0,0.2);
+  const nF=Math.round((cfg.fineCirc||1.8)*circ(gf)), Lf=safe(gf,{steps:nF,avgFrom:Math.round(nF*0.5),uT,axi:cfg.axi,nu0:0.002,Cs:lm/gf.dx},prolong(gc,gf,Lc),0.2,0.5);
+  if(cfg.sym) symmetrize(gf,Lf);
+  const tm={lbm:Date.now()-t0}; let tq=Date.now();
+  const F=postFlow(cfg,gf,Lf), AD=makeAD(gf,F,cfg.axi!==false);
+  const M=mixing(cfg,gf,F,AD,progress,0.7,0.12); tm.mix=Date.now()-tq; tq=Date.now();
+  const B=bubbles(cfg,gf,F,progress,0.82,0.06); tm.bub=Date.now()-tq; tq=Date.now();
+  // 拉格朗日采样噪声：按体积加权做 3×3 平滑（轴线附近单元体积小、样本少）
+  { const {nx,ny,solid,wv}=gf; [B.hold,B.area,...B.areaC].forEach(a=>{ const o=new Float64Array(a.length);
+      for(let j=0;j<ny;j++) for(let i=0;i<nx;i++){ const c=j*nx+i; if(solid[c]) continue; let s=0,w=0;
+        for(let dj=-1;dj<=1;dj++) for(let di=-1;di<=1;di++){ const ii=i+di, jj=j+dj; if(ii<0||ii>=nx||jj<0||jj>=ny) continue; const q=jj*nx+ii; if(solid[q]) continue; s+=a[q]*wv[q]; w+=wv[q]; }
+        o[c]=w>0?s/w:0; }
+      a.set(o); }); }
+  if(cfg.sym){ const {nx,ny}=gf; [B.hold,B.area,...B.areaC].forEach(a=>{ for(let j=0;j<ny;j++) for(let i=0;i<nx/2;i++){ const p=j*nx+i, q=j*nx+nx-1-i, m=0.5*(a[p]+a[q]); a[p]=m; a[q]=m; } }); }
+  cfg=Object.assign({},cfg,{tDO:Math.min(cfg.tDO,Math.max(30,1.3*(isFinite(M.t95)?M.t95:cfg.tDO)))});
+  const O=oxygen(cfg,gf,F,B,AD,progress,0.88,0.12); tm.do=Date.now()-tq;
+  // 汇总
+  const g=gf, rho=cfg.rho, Utip=Math.PI*cfg.N*cfg.imps[0].D;
+  const [e50,e90,e99,e999]=wquant(g,F.eps,[0.5,0.9,0.99,0.999]);
+  let eMaxGrid=0; for(let c=0;c<g.N;c++) if(!g.solid[c]) eMaxGrid=Math.max(eMaxGrid,F.eps[c]);
+  let zoneE=0, zoneV=0; for(let c=0;c<g.N;c++) if(Lf.zone[c]){ zoneE+=g.wv[c]*F.eps[c]; zoneV+=g.wv[c]; }
+  const holdMean=wmean(g,B.hold), aMean=wmean(g,B.area);
+  const [d5,d50,d95]=wquant(g,O.DO,[0.05,0.5,0.95]);
+  let doMin=Infinity, doMax=-Infinity, etaMin=Infinity; for(let c=0;c<g.N;c++) if(!g.solid[c]){ doMin=Math.min(doMin,O.DO[c]); doMax=Math.max(doMax,O.DO[c]); etaMin=Math.min(etaMin,O.eta[c]); }
+  const stats={
+    nx:g.nx, ny:g.ny, dx:g.dx, su:F.su, suE:F.suE, NqPred:F.NqPred, Utip, epsMean:F.epsMean,
+    e50,e90,e99,e999,eMaxGrid, zoneFrac:zoneV/g.vol, zoneShare:zoneE/(F.epsMean*g.vol),
+    deadFrac:wfrac(g,c=>F.spd[c]<0.05*Utip), slowFrac:wfrac(g,c=>F.spd[c]<0.02),
+    uMean:wmean(g,F.spd), uMax:Math.max(...Array.from(F.spd)),
+    t95:M.t95, t95v:M.t95v, holdMean, aMean, klaMean:O.klaMean*3600, doMin, doMax, do5:d5, do50:d50, do95:d95, sStar:O.sStar,
+    hypoxFrac:wfrac(g,c=>O.DO[c]<cfg.doLow), etaMin, etaCellFrac:wfrac(g,c=>O.eta[c]<cfg.dCell),
+    gas:B.stats, ms:Date.now()-t0, tm, retry, dtAD:AD.dt
+  };
+  return {grid:{nx:g.nx,ny:g.ny,dx:g.dx,R:g.R,solid:g.solid,wv:g.wv,xc:g.xc,yc:g.yc},
+    fields:{ux:F.ux,uy:F.uy,spd:F.spd,eps:F.eps,hold:Float32Array.from(B.hold),kla:Float32Array.from(O.kla,v=>v*3600),DO:O.DO,eta:O.eta,Dt:F.Dt},
+    mix:{curves:M.curves,frames:M.frames,cov:M.cov}, traj:B.traj, stats};
+}
+return {run,bubbleUt,makeGrid,lbmRun};
+}
+
+/* ===== CFD 流场仿真：配置、运行（Web Worker）、可视化 ===== */
+const CFDQ={fast:{nx:36,fc:1.6,label:"快速 36 格（约 10 s）"},std:{nx:48,fc:1.8,label:"标准 48 格（约 25 s）"},fine:{nx:64,fc:2,label:"精细 64 格（约 1 分钟）"}};
+const CFD={q:"fast",inject:"top",field:"spd",dCell:18,dM:0,dA:0,lines:true};
+const CFD_ANG={pbt4:35,sub3:35,xdr4:30,seg3:25,rushton:90,hydro:15,a315:20,ee:25,marine:10};   // 排出流与轴线夹角（°），经验取值
+const CFD_EPSC={rushton:9,hydro:1.5,marine:1.5};                                                // ε_max/(N³D²)：Rushton 7–11、斜叶 ≈2.4、推进式 1.1–1.8
+const CFD_FIELDS={
+  spd:{name:"速度",unit:"m/s"}, eps:{name:"能量耗散率 ε",unit:"W/m³"}, eta:{name:"Kolmogorov 尺度 η",unit:"µm"},
+  hold:{name:"气含率",unit:"%"}, kla:{name:"局部 kLa",unit:"h⁻¹"}, DO:{name:"溶氧",unit:"% 空气饱和"}, mix:{name:"示踪剂混合",unit:"c/c∞"}
+};
+let cfdLast=null, cfdBusy=false, cfdWorker=null, cfdAB=null, cfdFrame=-1, cfdTimer=null, cfdLines=null, cfdSnap=null;
+
+function cfdKey(p){ const o=Object.assign({},p); delete o.field; return JSON.stringify(o)+"|"+[CFD.q,CFD.inject,CFD.dCell,CFD.dM,CFD.dA].join(","); }
+function tateD(dO){ const sg=0.06; return Math.cbrt(6*dO*sg/(1000*g)); }        // 低气量 Tate 脱离直径，σ≈0.06 N/m（含 Pluronic 培养基）
+function cfdConfig(r,q){
+  const p=r.p, T=r.T, R=T/2, H=r.H, D=r.D, hd=r.G.hd, ys=r.G.ys, su=p.material==="su";
+  const angled=p.mount!=="top", tilt=angled?p.tilt*Math.PI/180:0, off=angled?p.offset*R:0;
+  const hs=(HEADS[p.head]||HEADS.ell).s, Hv=H*(su?1.22:1.28), topS=su?0.12:(p.head==="flat"?0.25:hs), headTop=Hv+R*topS;
+  const xAt=p.mount==="top_angled"?(y=>off-(headTop-y)*Math.tan(tilt)):(y=>off+(y-ys[0])*Math.tan(tilt));
+  // 偏心/斜插/底装偏心叶轮：偏心的作用相当于挡板（抑制切向旋流），按“等效中心安装”的轴对称问题求解，
+  // 分布器取相对叶轮轴线的位置。平面截面近似会高估主体流速（无径向扩散），故不用。
+  const equiv=angled, ax0=xAt(ys[0]), sym=true, unb=!p.baffles&&!angled;
+  const imps=ys.map((y,i)=>({y,type:i?p.impU:p.impB})).filter(o=>o.y<H*0.97).map(o=>{ const I=IMP[o.type];
+    return {x:0,y:o.y,D,type:o.type,Nq:I.Nq*(unb?0.6:1),angle:CFD_ANG[o.type]??30,up:I.flow==="up",radial:I.flow==="radial"}; });
+  // 分布器位置与三维模型一致
+  const yS=p.mount==="bottom"?ys[0]-D*0.12:Math.max(hd*0.55,ys[0]-Math.min(0.5*D,ys[0]*0.55));
+  const sx=(p.mount==="bottom"?xAt(yS):xAt(ys[0]))-ax0;
+  const yB=x=>hd>0?hd*(1-Math.sqrt(Math.max(0,1-(x/R)**2))):0;
+  const pt=(x,w,dy)=>{ const xx=Math.max(-R*0.92,Math.min(R*0.92,x)); return {x:xx,y:Math.max(yS+(dy||0),yB(xx)+T*0.01),w}; };
+  const mir=a=>sym?a.concat(a.filter(s=>Math.abs(s.x)>1e-6).map(s=>Object.assign({},s,{x:-s.x}))):a;
+  const fAct=r.Q>0?r.Qa/r.Q:1;
+  const gas=[], plumes=[];
+  const Tref=p.gasRef==="std20"?293.15:273.15, Gs=q=>q*101325/(8.314*Tref);
+  const yEff=(yin,A,Gm)=>{ if(!(Gm>0)) return yin; const ntu=-Math.log(Math.max(1e-9,1-A/Gm)); return r.ystar+(yin-r.ystar)*(ntu>1e-6?(1-Math.exp(-ntu))/ntu:1); };
+  if(p.microOn&&r.QM>0){
+    let src;
+    if(p.microType==="frit"){ const n=Math.max(1,Math.round(p.microN)); src=n>1?[pt(sx+D*0.3,T*0.06),pt(sx-D*0.3,T*0.06)]:[pt(sx+D*0.45,T*0.1)]; }
+    else src=[pt(sx+D*0.28,T*0.02),pt(sx-D*0.28,T*0.02)];
+    src=mir(src);
+    const d0=CFD.dM>0?CFD.dM/1000:Math.min(0.01,Math.max(0.3e-3,tateD(p.pore*1e-6)));
+    gas.push({name:"微泡",Q:r.QM*fAct,d0,yEff:yEff(p.xo2M,r.AM,Gs(r.QM)),src});
+  }
+  if(p.macroOn&&r.QA>0){
+    let src, dO;
+    if(p.macroType==="ring"){ src=[pt(sx+D*0.42,T*0.02,T*0.015),pt(sx-D*0.42,T*0.02,T*0.015)]; dO=p.holeD/1000; }
+    else if(p.macroType==="drilled"){ src=[pt(sx-D*0.45,T*0.16,T*0.01)]; dO=p.holeD/1000; }
+    else { src=[pt(sx-D*0.35,T*0.02,T*0.12)]; dO=0.012; }
+    src=mir(src);
+    const d0=CFD.dA>0?CFD.dA/1000:Math.min(0.012,Math.max(0.5e-3,tateD(dO)));
+    gas.push({name:"大泡",Q:r.QA*fAct,d0,yEff:yEff(p.xo2A,r.AA,Gs(r.QA)),src});
+  }
+  gas.forEach(cl=>cl.src.forEach(s=>plumes.push({x:s.x,y:s.y,w:Math.max(s.w/2,T*0.02),q:cl.Q/cl.src.length})));
+  const Pgas=gas.reduce((a,cl)=>a+p.rho*g*cl.Q*Math.max(0,H-yS),0);
+  const Tk=p.temp+273.15, nu=p.mu/1000/p.rho;
+  const inj=CFD.inject==="imp"?{x:(imps[0].radial?0.62:0.35)*D,y:Math.min(H*0.95,imps[0].y+(imps[0].up?-1:1)*0.15*D)}
+           :CFD.inject==="wall"?{x:-0.85*R,y:H*0.5}:{x:0.5*R,y:H*0.97};
+  return {T,Hl:H,hd,tilt:0,equiv,N:r.N,rho:p.rho,nu,V:r.V,Pimp:r.Pg,Pgas,imps,plumes,gas,sym,axi:false,plumeForce:true,
+    sigma:0.06, DO2:2.1e-9*(Tk/298.15)*(0.89/p.mu), fmed:p.fmed, HO2:r.HO2, Phead:1.01325+p.phead,
+    OUR:r.OUR/3600, cL:r.cL, cAirHead:r.cAirHead, inject:inj,
+    probes:[{x:0.6*R,y:Math.max(hd+0.06*T,0.12*H)},{x:-0.6*R,y:0.5*H},{x:0.6*R,y:0.9*H}],
+    doProbe:{x:-0.85*R,y:Math.max(0.2*H,ys[0],hd+0.05*T)}, doLow:20, dCell:CFD.dCell*1e-6,
+    tMixMax:Math.min(600,Math.max(60,4*r.theta)), tDO:Math.min(240,Math.max(40,2.5*r.theta)),
+    nx:(CFDQ[q||CFD.q]||CFDQ.std).nx, fineCirc:(CFDQ[q||CFD.q]||CFDQ.std).fc};
+}
+
+/* Worker：把求解核心序列化进 Blob Worker；被浏览器策略拦截时退回主线程 */
+function cfdGetWorker(){
+  if(cfdWorker!==null) return cfdWorker;
+  try{
+    const src=`const API=(${CFDCORE.toString()})();onmessage=e=>{const d=e.data;try{const r=API.run(d.cfg,(f,st,snap)=>postMessage({type:"p",id:d.id,f,st,snap}));postMessage({type:"done",id:d.id,r});}catch(err){postMessage({type:"err",id:d.id,msg:String(err&&err.message||err)});}};`;
+    cfdWorker=new Worker(URL.createObjectURL(new Blob([src],{type:"text/javascript"})));
+  }catch(e){ cfdWorker=false; }
+  return cfdWorker;
+}
+function cfdCompute(cfg,onP){
+  return new Promise((res,rej)=>{
+    const local=()=>setTimeout(()=>{ try{ res(CFDCORE().run(cfg,onP)); }catch(e){ rej(e); } },40);
+    const w=cfdGetWorker(); if(!w){ local(); return; }
+    const id=Math.random();
+    const h=e=>{ const d=e.data; if(d.id!==id) return; if(d.type==="p"){ onP(d.f,d.st,d.snap); return; } off(); d.type==="done"?res(d.r):rej(new Error(d.msg)); };
+    const fail=()=>{ off(); cfdWorker=false; local(); };
+    const off=()=>{ w.removeEventListener("message",h); w.removeEventListener("error",fail); };
+    w.addEventListener("message",h); w.addEventListener("error",fail);
+    w.postMessage({id,cfg});
+  });
+}
+function cfdProgress(f,st,snap){
+  $("cfdBar").style.width=(100*f).toFixed(0)+"%"; $("cfdStage").textContent=st+" · "+(100*f).toFixed(0)+"%";
+  if(snap){ cfdSnap=snap; drawCfdSnap(); }
+}
+async function runCfd(opts){
+  if(cfdBusy) return; cfdBusy=true; cfdSetBusy(true);
+  const r=compute(S), cfg=cfdConfig(r), key=cfdKey(S), t0=performance.now();
+  try{
+    const res=await cfdCompute(cfg,cfdProgress);
+    cfdLast={res,cfg,r,key,sum:cfdSummary(res,cfg,r),ms:performance.now()-t0}; cfdLines=null; cfdFrame=-1;
+    cfdBusy=false; cfdSetBusy(false);
+    renderCfd(); cfdRefresh3D();
+  }catch(e){ cfdBusy=false; cfdSetBusy(false); $("cfdStage").textContent="计算失败："+e.message; }
+}
+function cfdSetBusy(b){ ["cfdRun","cfdAB"].forEach(id=>$(id).disabled=b); $("cfdProg").hidden=!b; if(!b) $("cfdBar").style.width="0"; }
+
+/* 汇总：CFD 结果 + 与主面板关联式对比 + 文献峰值修正 */
+function cfdSummary(res,cfg,r){
+  const s=res.stats, p=r.p, rho=p.rho;
+  const litC=Math.max(...cfg.imps.map(im=>CFD_EPSC[im.type]??2.4));
+  const epsLit=litC*r.N**3*r.D**2;                                   // W/kg
+  const peak=Math.max(s.eMaxGrid,epsLit);
+  const xo2Max=Math.max(p.microOn?p.xo2M:0,p.macroOn?p.xo2A:0);
+  return {epsMeanW:s.epsMean*rho, epsGridW:s.eMaxGrid*rho, epsLitW:epsLit*rho, epsPeakW:peak*rho, phi:s.eMaxGrid/s.epsMean, phiPeak:peak/s.epsMean, litC,
+    t95:s.t95, theta:r.theta, dead:s.deadFrac, hold:s.holdMean, a:s.aMean, kla:s.klaMean, klaCorr:r.kla, klaRatio:s.klaMean/r.kla,
+    do5:s.do5, do50:s.do50, do95:s.do95, doMin:s.doMin, doMax:s.doMax, hyp:s.hypoxFrac, sStar:s.sStar, o2Need:s.sStar*xo2Max,
+    etaMin:s.etaMin*1e6, etaCell:s.etaCellFrac, uMean:s.uMean, Utip:s.Utip, gas:s.gas};
+}
+function cfdChecks(sm,p){
+  const L=[], ev="CFD·降阶";
+  const add=(lbl,val,st,src,e)=>L.push({lbl,val,st,src,ev:e||ev});
+  const tri=(v,lim,lower)=>{ const ok=lower?v>=lim:v<=lim; if(ok) return Math.abs(v/lim-1)<0.2?"warn":"ok"; return "bad"; };
+  add("叶轮区峰值 EDR ≤ 糖基化阈值",`${sci(sm.epsPeakW)} W/m³`,tri(sm.epsPeakW,p.edrMax),`取 CFD 网格最大值与文献 ε_max = ${sm.litC}·N³D² 的较大者；阈值 ${sci(p.edrMax)} W/m³（Godoy-Silva 2009：≥6×10⁴ W/m³ 糖基化偏移）`);
+  add("Kolmogorov 尺度 ≥ 细胞直径",`${fmt(sm.etaMin,0)} µm`,tri(sm.etaMin,CFD.dCell,true),`η = (ν³/ε)^¼ 全罐最小值；细胞直径取 ${CFD.dCell} µm`);
+  add("死区体积 ≤ 10%",`${fmt(sm.dead*100,1)}%`,tri(sm.dead,0.1),"|u| < 5% 叶尖速度的体积占比（经验判据）","经验");
+  add("CFD 混合时间 ≤ 上限",`${fmt(sm.t95,0)} s`,tri(sm.t95,p.mixMax),`三个探头全部进入 ±5% 带的时间；关联式 ${fmt(sm.theta,0)} s，上限 ${fmt(p.mixMax,0)} s`);
+  add("DO < 20% 的体积 ≤ 1%",`${fmt(sm.hyp*100,1)}%`,tri(sm.hyp,0.01),`DO 探头闭环到 ${fmt(p.doset,0)}% 时的全罐分布：5%–95% 分位 ${fmt(sm.do5,0)}–${fmt(sm.do95,0)}%`);
+  add("进气 O₂ 可达",`需 ${fmt(sm.o2Need*100,0)}% O₂`,tri(sm.o2Need,1),`探头闭环所需进气 O₂ 倍率 ${fmt(sm.sStar,2)}× 当前；>100% 表示当前通气不能维持设定值`);
+  add("CFD kLa 与关联式一致（±40%）",`${fmt(sm.kla,1)} vs ${fmt(sm.klaCorr,1)} h⁻¹`,Math.abs(sm.klaRatio-1)<=0.4?(Math.abs(sm.klaRatio-1)>0.3?"warn":"ok"):"bad","局部 kL（Higbie + Kolmogorov 接触时间）× 局部比表面积 的体积平均；偏差大时以实测 kLa 为准");
+  return L;
+}
+
+/* ---------- 色标与场图 ---------- */
+const CMAP={
+  vir:[[0,[68,1,84]],[0.25,[59,82,139]],[0.5,[33,145,140]],[0.75,[94,201,98]],[1,[253,231,37]]],
+  mag:[[0,[10,7,30]],[0.25,[81,18,124]],[0.5,[183,55,121]],[0.75,[252,137,97]],[1,[252,253,191]]],
+  div:[[0,[178,24,43]],[0.25,[239,138,98]],[0.5,[247,247,247]],[0.75,[103,169,207]],[1,[33,102,172]]],
+  blu:[[0,[247,251,255]],[0.35,[158,202,225]],[0.7,[49,130,189]],[1,[8,48,107]]]
+};
+function cmap(name,t){ const m=CMAP[name]; t=Math.max(0,Math.min(1,isFinite(t)?t:0)); let k=1; while(k<m.length-1&&m[k][0]<t) k++; const a=m[k-1],b=m[k],u=(t-a[0])/(b[0]-a[0]||1); return a[1].map((v,i)=>Math.round(v+(b[1][i]-v)*u)); }
+function wq(vals,w,qs){ const idx=[]; for(let i=0;i<vals.length;i++) if(w[i]>0&&isFinite(vals[i])) idx.push(i); idx.sort((a,b)=>vals[a]-vals[b]); let tot=0; idx.forEach(i=>tot+=w[i]);
+  return qs.map(q=>{ let acc=0; for(const i of idx){ acc+=w[i]; if(acc>=q*tot) return vals[i]; } return vals[idx[idx.length-1]]; }); }
+function cfdFieldSpec(L,field){
+  const res=L.res, F=res.fields, gr=res.grid, rho=L.cfg.rho, w=gr.wv;
+  if(field==="spd"){ const [hi]=wq(F.spd,w,[0.99]); return {get:c=>F.spd[c],t:v=>v/hi,map:"vir",lo:0,hi,fmt:v=>fmt(v,2)}; }
+  if(field==="eps"){ const a=Float64Array.from(F.eps,v=>Math.log10(v*rho)); const [lo,hi]=wq(a,w,[0.01,0.999]); return {get:c=>F.eps[c]*rho,t:v=>(Math.log10(v)-lo)/(hi-lo),map:"mag",lo:10**lo,hi:10**hi,log:true,fmt:v=>sci(v)}; }
+  if(field==="eta"){ const a=Float64Array.from(F.eta,v=>v*1e6); const [lo,hi]=wq(a,w,[0.01,0.99]); return {get:c=>F.eta[c]*1e6,t:v=>1-(v-lo)/(hi-lo),map:"mag",lo,hi,rev:true,fmt:v=>fmt(v,0)}; }
+  if(field==="hold"){ const a=Float64Array.from(F.hold,v=>v*100); const [hi]=wq(a,w,[0.98]); return {get:c=>F.hold[c]*100,t:v=>v/(hi||1),map:"blu",lo:0,hi,fmt:v=>sig(v,2)}; }
+  if(field==="kla"){ const [hi]=wq(F.kla,w,[0.98]); return {get:c=>F.kla[c],t:v=>v/(hi||1),map:"vir",lo:0,hi,fmt:v=>fmt(v,0)}; }
+  if(field==="DO"){ const sp=L.r.p.doset, [lo,hi]=wq(F.DO,w,[0.005,0.995]); const span=Math.max(5,Math.abs(lo-sp),Math.abs(hi-sp)); return {get:c=>F.DO[c],t:v=>0.5+(v-sp)/(2*span),map:"div",lo:sp-span,hi:sp+span,fmt:v=>fmt(v,0)}; }
+  if(field==="mix"){ const fr=res.mix.frames[Math.max(0,cfdFrame)]||res.mix.frames[0]; return {get:c=>fr.c[c],t:v=>v/2,map:"vir",lo:0,hi:2,fmt:v=>fmt(v,2),t0:fr.t}; }
+}
+/* 渲染场到网格分辨率画布（alpha=0 为罐外），供 2D 视图与 3D 剖面贴图共用 */
+function cfdFieldCanvas(L,field){
+  const gr=L.res.grid, sp=cfdFieldSpec(L,field), cv=document.createElement("canvas"); cv.width=gr.nx; cv.height=gr.ny;
+  const ctx=cv.getContext("2d"), im=ctx.createImageData(gr.nx,gr.ny);
+  for(let j=0;j<gr.ny;j++) for(let i=0;i<gr.nx;i++){ const c=j*gr.nx+i, o=((gr.ny-1-j)*gr.nx+i)*4; if(gr.solid[c]){ im.data[o+3]=0; continue; }
+    const col=cmap(sp.map,sp.t(sp.get(c))); im.data[o]=col[0]; im.data[o+1]=col[1]; im.data[o+2]=col[2]; im.data[o+3]=255; }
+  ctx.putImageData(im,0,0); return cv;
+}
+function cfdStreamlines(L){
+  if(cfdLines) return cfdLines;
+  const gr=L.res.grid, F=L.res.fields, nx=gr.nx, ny=gr.ny, dx=gr.dx, lines=[];
+  const at=(x,y)=>{ const i=Math.floor((x+gr.R)/dx), j=Math.floor(y/dx); if(i<0||i>=nx||j<0||j>=ny) return null; const c=j*nx+i; if(gr.solid[c]) return null; return [F.ux[c],F.uy[c]]; };
+  const seen=new Uint8Array(nx*ny), st=Math.max(3,Math.round(nx/12));
+  for(let j=Math.floor(st/2);j<ny;j+=st) for(let i=Math.floor(st/2);i<nx;i+=st){
+    const c=j*nx+i; if(gr.solid[c]||seen[c]) continue;
+    const pts=[]; for(const dir of [1,-1]){ let x=gr.xc[i], y=gr.yc[j]; const seg=[]; for(let k=0;k<160;k++){ const u=at(x,y); if(!u) break; const sp=Math.hypot(u[0],u[1]); if(sp<1e-4) break;
+        const h=0.6*dx/sp*dir, u2=at(x+u[0]*h/2,y+u[1]*h/2); if(!u2) break; x+=u2[0]*h; y+=u2[1]*h; seg.push([x,y]);
+        const ii=Math.floor((x+gr.R)/dx), jj=Math.floor(y/dx); if(ii>=0&&ii<nx&&jj>=0&&jj<ny){ const cc=jj*nx+ii; if(seen[cc]>1) break; seen[cc]++; } }
+      if(dir===1) pts.push(...seg); else pts.unshift(...seg.reverse()); }
+    if(pts.length>6) lines.push(pts);
+  }
+  cfdLines=lines; return lines;
+}
+function drawCfdSnap(){
+  const cv=$("cfdCanvas"); if(!cfdSnap||!cv) return;
+  const s=cfdSnap, box=cv.parentElement.clientWidth, W=Math.min(box,560), H=Math.round(W*s.ny/s.nx);
+  cv.width=W*devicePixelRatio; cv.height=H*devicePixelRatio; cv.style.width=W+"px"; cv.style.height=H+"px";
+  const off=document.createElement("canvas"); off.width=s.nx; off.height=s.ny; const ctx=off.getContext("2d"), im=ctx.createImageData(s.nx,s.ny);
+  let mx=1e-9; s.sp.forEach(v=>{ if(v>mx) mx=v; });
+  for(let j=0;j<s.ny;j++) for(let i=0;i<s.nx;i++){ const v=s.sp[j*s.nx+i], o=((s.ny-1-j)*s.nx+i)*4; if(v<0){ im.data[o+3]=0; continue; } const c=cmap("vir",v/mx); im.data[o]=c[0]; im.data[o+1]=c[1]; im.data[o+2]=c[2]; im.data[o+3]=255; }
+  ctx.putImageData(im,0,0); const c2=cv.getContext("2d"); c2.setTransform(1,0,0,1,0,0); c2.clearRect(0,0,cv.width,cv.height); c2.imageSmoothingEnabled=true; c2.drawImage(off,0,0,cv.width,cv.height);
+  $("cfdCbar").innerHTML=`<span>求解中：瞬时速度（相对值）</span>`;
+}
+function renderCfdField(){
+  const L=cfdLast, cv=$("cfdCanvas"); if(!L||!cv) return;
+  const gr=L.res.grid, field=CFD.field, sp=cfdFieldSpec(L,field);
+  const box=cv.parentElement.clientWidth, W=Math.min(box,560), H=Math.round(W*gr.ny/gr.nx), dpr=devicePixelRatio||1;
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); cv.style.width=W+"px"; cv.style.height=H+"px";
+  const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  ctx.imageSmoothingEnabled=true; ctx.drawImage(cfdFieldCanvas(L,field),0,0,W,H);
+  const sx=W/(2*gr.R), X=x=>(x+gr.R)*sx, Y=y=>H-y*sx;
+  // 罐壁与封头
+  ctx.strokeStyle=css("--ink"); ctx.lineWidth=1.5; ctx.beginPath();
+  const hd=L.cfg.hd; for(let k=0;k<=60;k++){ const x=-gr.R+2*gr.R*k/60, y=hd>0?hd*(1-Math.sqrt(Math.max(0,1-(x/gr.R)**2))):0; k?ctx.lineTo(X(x),Y(y)):ctx.moveTo(X(x),Y(y)); }
+  ctx.moveTo(X(-gr.R),Y(hd)); ctx.lineTo(X(-gr.R),Y(L.cfg.Hl)); ctx.moveTo(X(gr.R),Y(hd)); ctx.lineTo(X(gr.R),Y(L.cfg.Hl)); ctx.stroke();
+  ctx.setLineDash([5,4]); ctx.strokeStyle="#6aa9d8"; ctx.beginPath(); ctx.moveTo(X(-gr.R),Y(L.cfg.Hl)); ctx.lineTo(X(gr.R),Y(L.cfg.Hl)); ctx.stroke(); ctx.setLineDash([]);
+  // 流线
+  if(CFD.lines&&field!=="mix"){
+    ctx.strokeStyle=field==="spd"||field==="eps"||field==="kla"?"rgba(255,255,255,0.55)":"rgba(20,30,40,0.45)"; ctx.lineWidth=1;
+    cfdStreamlines(L).forEach(pl=>{ ctx.beginPath(); pl.forEach((q,k)=>k?ctx.lineTo(X(q[0]),Y(q[1])):ctx.moveTo(X(q[0]),Y(q[1]))); ctx.stroke();
+      const m=Math.floor(pl.length/2), a=pl[m], b=pl[Math.min(pl.length-1,m+2)]; const ang=Math.atan2(-(b[1]-a[1]),b[0]-a[0]);
+      ctx.save(); ctx.translate(X(b[0]),Y(b[1])); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-6,-3); ctx.lineTo(-6,3); ctx.closePath(); ctx.fillStyle=ctx.strokeStyle; ctx.fill(); ctx.restore(); });
+  }
+  // 气泡轨迹
+  if(field==="hold"||field==="kla"){ L.res.traj.forEach(tr=>{ ctx.strokeStyle=tr.cls?"rgba(30,110,190,0.75)":"rgba(255,255,255,0.85)"; ctx.lineWidth=1; ctx.beginPath(); tr.pts.forEach((q,k)=>k?ctx.lineTo(X(q[0]),Y(q[1])):ctx.moveTo(X(q[0]),Y(q[1]))); ctx.stroke(); }); }
+  // 叶轮、分布器、探头
+  ctx.lineWidth=3; ctx.strokeStyle=css("--ink"); L.cfg.imps.forEach(im=>{ ctx.beginPath(); ctx.moveTo(X(im.x-im.D/2),Y(im.y)); ctx.lineTo(X(im.x+im.D/2),Y(im.y)); ctx.stroke(); });
+  ctx.lineWidth=1;
+  L.cfg.gas.forEach((cl,ci)=>cl.src.forEach(s=>{ ctx.fillStyle=ci?"#2f7fc4":"#9aa7b4"; ctx.fillRect(X(s.x-s.w/2),Y(s.y)-2,Math.max(3,s.w*sx),4); }));
+  const mark=(q,txt,col)=>{ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(X(q.x),Y(q.y),4.5,0,7); ctx.fill(); ctx.strokeStyle="#fff"; ctx.stroke(); ctx.font="11px 'Noto Sans SC',sans-serif"; ctx.fillStyle=css("--ink"); ctx.fillText(txt,Math.min(W-40,X(q.x)+6),Y(q.y)-6); };
+  if(field==="mix"){ L.cfg.probes.forEach((q,k)=>mark(q,"P"+(k+1),"#e0a030")); mark(L.cfg.inject,"加入点","#d0453a"); }
+  if(field==="DO") mark(L.cfg.doProbe,"DO 探头","#d0453a");
+  // 色标
+  const grad=[0,0.25,0.5,0.75,1].map(t=>{ const c=cmap(sp.map,sp.rev?1-t:t); return `rgb(${c})`; }).join(",");
+  const tl=field==="mix"?` · t = ${fmt(sp.t0,0)} s`:"";
+  $("cfdCbar").innerHTML=`<span>${CFD_FIELDS[field].name}（${CFD_FIELDS[field].unit}）${tl}</span><span class="cbar"><i style="background:linear-gradient(90deg,${grad})"></i><em>${sp.fmt(sp.lo)}</em><em>${sp.fmt(sp.hi)}</em></span>`;
+}
+function cfdHover(ev){
+  const L=cfdLast, cv=$("cfdCanvas"); if(!L) return; const gr=L.res.grid, b=cv.getBoundingClientRect();
+  const x=(ev.clientX-b.left)/b.width*2*gr.R-gr.R, y=(1-(ev.clientY-b.top)/b.height)*gr.ny*gr.dx;
+  const i=Math.floor((x+gr.R)/gr.dx), j=Math.floor(y/gr.dx); if(i<0||i>=gr.nx||j<0||j>=gr.ny) return; const c=j*gr.nx+i;
+  if(gr.solid[c]){ $("cfdRead").textContent="罐外"; return; }
+  const F=L.res.fields, rho=L.cfg.rho;
+  $("cfdRead").textContent=`r ${fmt(Math.abs(x)*1000,0)} mm · 高 ${fmt(y*1000,0)} mm ｜ |u| ${fmt(F.spd[c],3)} m/s ｜ ε ${sci(F.eps[c]*rho)} W/m³ ｜ η ${fmt(F.eta[c]*1e6,0)} µm ｜ 气含率 ${sig(F.hold[c]*100,2)}% ｜ kLa ${fmt(F.kla[c],0)} h⁻¹ ｜ DO ${fmt(F.DO[c],0)}%`;
+}
+
+function renderCfd(){
+  const L=cfdLast; if(!L) return;
+  const sm=L.sum, p=L.r.p, stale=L.key!==cfdKey(S);
+  $("cfdStage").textContent=`完成 · ${L.res.grid.nx}×${L.res.grid.ny} 网格 · ${fmt(L.ms/1000,1)} s${stale?" · 参数已改动，结果对应上次运行":""}`;
+  $("cfdBanner").innerHTML=`<b>${fmt(p.vol,0)} L · ${IMP[p.impB].name}${p.nImp>1?" ×"+p.nImp:""} · ${fmt(p.rpm,0)} rpm</b>　过轴纵截面二维求解${L.cfg.equiv?"；偏心/斜插/底装叶轮按等效中心安装处理（偏心起挡板作用，三维效应更强，宜作相对比较）":""}　ε 按能量守恒标定到 Pg/V + 通气功率 = ${fmt(sm.epsMeanW,1)} W/m³`;
+  const tile=(k,v,sub,cls)=>`<div class="tile${cls?" "+cls:""}"><div class="k">${k}</div><div class="v">${v}</div>${sub?`<div class="k">${sub}</div>`:""}</div>`;
+  $("cfdKpi").innerHTML=
+    tile("叶轮区峰值 EDR",`${sci(sm.epsPeakW)}<small>W/m³</small>`,`平均 ${fmt(sm.epsMeanW,1)} · 网格峰值 ${sci(sm.epsGridW)} · 文献 ${sci(sm.epsLitW)}`)+
+    tile("峰值/平均 φ",`${fmt(sm.phiPeak,0)}<small>×</small>`,`CFD 网格可分辨 ${fmt(sm.phi,0)}×`)+
+    tile("混合时间 t95",`${fmt(sm.t95,0)}<small>s</small>`,`关联式 ${fmt(sm.theta,0)} s（${fmt(sm.t95/sm.theta,2)}×）`)+
+    tile("死区体积",`${fmt(sm.dead*100,1)}<small>%</small>`,`平均流速 ${fmt(sm.uMean,2)} m/s = ${fmt(sm.uMean/sm.Utip*100,0)}% 叶尖`)+
+    tile("平均气含率",`${sig(sm.hold*100,2)}<small>%</small>`,`比表面积 a = ${fmt(sm.a,1)} m⁻¹`)+
+    tile("CFD kLa",`${fmt(sm.kla,1)}<small>h⁻¹</small>`,`关联式 ${fmt(sm.klaCorr,1)}（${fmt(sm.klaRatio,2)}×）`)+
+    tile("DO 分布 5%–95%",`${fmt(sm.do5,0)}–${fmt(sm.do95,0)}<small>%</small>`,`最低 ${fmt(sm.doMin,0)}% · 探头 ${fmt(p.doset,0)}%`)+
+    tile("Kolmogorov η 最小",`${fmt(sm.etaMin,0)}<small>µm</small>`,`细胞 ${CFD.dCell} µm`);
+  $("cfdChecks").innerHTML=cfdChecks(sm,p).map(c=>`<li><span class="lbl">${c.lbl}</span><span><span class="num">${c.val}</span> ${pill(c.st,stText[c.st])}</span><span class="src"><span class="chip ev-${evClass(c.ev)}">${c.ev}</span> ${c.src}</span></li>`).join("");
+  $("cfdGas").innerHTML=`<tr><th>气泡类</th><th>初始粒径</th><th>出口粒径</th><th>终端速度</th><th>平均停留</th><th>Hinze 破碎</th></tr>`+
+    sm.gas.map(gq=>`<tr><td>${gq.name}</td><td>${fmt(gq.d0*1000,2)} mm</td><td>${fmt(gq.dOut*1000,2)} mm</td><td>${fmt(gq.ut0*100,1)} cm/s</td><td>${fmt(gq.tRes,1)} s</td><td>${gq.broke?"有":"无"}</td></tr>`).join("")||`<tr><td colspan="6">未通气</td></tr>`;
+  renderCfdField(); renderCfdCharts();
+  $("cfdPlay").hidden=CFD.field!=="mix";
+}
+function renderCfdCharts(){
+  const L=cfdLast; if(!L) return; const gr=L.res.grid, F=L.res.fields, rho=L.cfg.rho, sm=L.sum;
+  // ε 体积累积分布
+  const idx=[]; for(let c=0;c<gr.wv.length;c++) if(!gr.solid[c]) idx.push(c); idx.sort((a,b)=>F.eps[a]-F.eps[b]);
+  let tot=0; idx.forEach(c=>tot+=gr.wv[c]); let acc=0; const pts=[]; idx.forEach((c,k)=>{ acc+=gr.wv[c]; if(k%3===0||k===idx.length-1) pts.push([Math.log10(F.eps[c]*rho),100*acc/tot]); });
+  const xMin=Math.floor(Math.min(pts[0][0],Math.log10(sm.epsMeanW))-0.5), xMax=Math.max(Math.ceil(Math.log10(Math.max(sm.epsPeakW,2.9e5))+0.3),7);
+  const vline=(xs,ys,x,col,txt,yy)=>`<line x1="${xs(x)}" x2="${xs(x)}" y1="${ys(0)}" y2="${ys(100)}" stroke="${col}" stroke-dasharray="4 3"/><text x="${xs(x)+3}" y="${ys(yy)}" fill="${col}" font-size="11" font-family="Noto Sans SC, sans-serif">${txt}</text>`;
+  chart($("cfdC1"),{title:"ε 体积累积分布",xMin,xMax,yMin:0,yMax:100,xLabel:"能量耗散率 EDR（W/m³，对数）",yLabel:"累积体积 %",xFmt:v=>"10"+String(v).replace(/-/,"⁻").replace(/\d/g,d=>"⁰¹²³⁴⁵⁶⁷⁸⁹"[d]),
+    pre:(xs,ys)=>vline(xs,ys,Math.log10(6e4),"#e0a030","糖基化",96)+vline(xs,ys,Math.log10(2.9e5),"#d0453a","生长停止",86)+vline(xs,ys,Math.log10(2e6),"#8b1c14","裂解",76),
+    series:[{pts,color:css("--accent")}], dots:[[Math.log10(sm.epsMeanW),50,css("--accent")],[Math.log10(sm.epsPeakW),100,"#d0453a"]],
+    labels:[{x:Math.log10(sm.epsPeakW),y:92,text:"叶轮区峰值",anchor:"end",color:"#d0453a"}]});
+  // 示踪剂曲线
+  const cur=L.res.mix.curves, tEnd=Math.max(...cur.map(c=>c[c.length-1][0])), cols=["#2f7fc4","#e0a030","#2f9e6b"];
+  let yMax=2; cur.forEach(c=>c.forEach(q=>{ if(q[1]>yMax) yMax=q[1]; })); yMax=Math.min(6,Math.ceil(yMax));
+  chart($("cfdC2"),{title:"示踪剂混合",xMin:0,xMax:tEnd,yMin:0,yMax,xLabel:"时间 s",yLabel:"c / c∞",bands:[{y0:0.95,y1:1.05,color:"#2f9e6b"}],
+    series:cur.map((c,k)=>({pts:c,color:cols[k]})), pre:(xs,ys)=>isFinite(sm.t95)?`<line x1="${xs(sm.t95)}" x2="${xs(sm.t95)}" y1="${ys(0)}" y2="${ys(yMax)}" stroke="${css("--ink")}" stroke-dasharray="4 3"/>`:"",
+    labels:[{x:sm.t95,y:yMax*0.92,text:`t95 = ${fmt(sm.t95,0)} s`,anchor:"start"},...cur.map((c,k)=>({x:tEnd,y:c[c.length-1][1]+0.18*(k-1)+0.3,text:"P"+(k+1),color:cols[k]}))]});
+  // DO 体积分布直方图
+  const lo=Math.floor(sm.doMin/2.5)*2.5, hi=Math.ceil(sm.doMax/2.5)*2.5+2.5, nb=Math.max(1,Math.round((hi-lo)/2.5)), hist=new Array(nb).fill(0);
+  for(let c=0;c<gr.wv.length;c++) if(!gr.solid[c]) hist[Math.min(nb-1,Math.floor((F.DO[c]-lo)/2.5))]+=gr.wv[c];
+  const hmax=Math.max(...hist)/tot*100;
+  chart($("cfdC3"),{title:"溶氧体积分布",xMin:lo,xMax:hi,yMin:0,yMax:Math.ceil(hmax*1.15),xLabel:"DO（% 空气饱和）",yLabel:"体积 %",
+    bars:hist.map((v,k)=>({x:lo+2.5*(k+0.5),y:v/tot*100,w:Math.max(3,520/nb-2),color:lo+2.5*(k+0.5)<20?"#d0453a":css("--accent")})),
+    pre:(xs,ys)=>`<line x1="${xs(L.r.p.doset)}" x2="${xs(L.r.p.doset)}" y1="${ys(0)}" y2="${ys(hmax*1.1)}" stroke="#2f9e6b" stroke-dasharray="4 3"/>`,
+    labels:[{x:L.r.p.doset,y:hmax*1.08,text:"探头设定值",anchor:"start",color:"#2f9e6b"}]});
+}
+
+/* A 厂 / B 厂对比：放大页的源工况与“恒 kLa”目标工况，快速网格 */
+async function runCfdAB(){
+  if(cfdBusy) return; renderScale(); if(!suTarget){ return; }
+  cfdBusy=true; cfdSetBusy(true);
+  const rA=compute(Object.assign({},S,SU.src)), rB=suTarget.rk, out=[];
+  try{
+    for(const [name,r] of [["A 厂 · "+fmt(rA.p.vol,0)+" L",rA],["B 厂 · "+fmt(rB.p.vol,0)+" L（恒 kLa "+fmt(rB.p.rpm,0)+" rpm）",rB]]){
+      const cfg=cfdConfig(r,"fast"); const res=await cfdCompute(cfg,(f,st,snap)=>cfdProgress((out.length+f)/2,name+" · "+st,snap));
+      out.push({name,r,sum:cfdSummary(res,cfg,r)});
+    }
+    cfdAB=out; renderCfdAB();
+  }catch(e){ $("cfdStage").textContent="对比失败："+e.message; }
+  cfdBusy=false; cfdSetBusy(false); if(cfdLast) renderCfdField();
+}
+function renderCfdAB(){
+  if(!cfdAB) return; const [a,b]=cfdAB;
+  const rows=[["叶轮区峰值 EDR (W/m³)",s=>s.epsPeakW,sci,true],["平均 ε (W/m³)",s=>s.epsMeanW,v=>fmt(v,1)],["峰值/平均 φ",s=>s.phiPeak,v=>fmt(v,0)],
+    ["混合时间 t95 (s)",s=>s.t95,v=>fmt(v,0),true],["死区体积 %",s=>s.dead*100,v=>fmt(v,1),true],["平均流速 / 叶尖",s=>s.uMean/s.Utip*100,v=>fmt(v,0)+"%"],
+    ["平均气含率 %",s=>s.hold*100,v=>sig(v,2)],["CFD kLa (h⁻¹)",s=>s.kla,v=>fmt(v,1)],["关联式 kLa (h⁻¹)",s=>s.klaCorr,v=>fmt(v,1)],
+    ["DO 5% 分位 (%)",s=>s.do5,v=>fmt(v,0)],["DO < 20% 体积 %",s=>s.hyp*100,v=>fmt(v,1),true],["Kolmogorov η 最小 (µm)",s=>s.etaMin,v=>fmt(v,0)]];
+  $("cfdABt").innerHTML=`<tr><th>指标</th><th>${a.name}</th><th>${b.name}</th><th>B / A</th></tr>`+rows.map(rw=>{ const va=rw[1](a.sum), vb=rw[1](b.sum), q=vb/va;
+    const flag=rw[3]&&isFinite(q)&&q>1.5?pill("warn","B 偏高"):""; return `<tr><td>${rw[0]}</td><td>${rw[2](va)}</td><td>${rw[2](vb)}</td><td>${isFinite(q)?fmt(q,2)+"×":"–"} ${flag}</td></tr>`; }).join("");
+  const sa=a.sum, sb=b.sum, notes=[];
+  if(sb.t95>1.3*sa.t95) notes.push(`B 厂混合时间是 A 厂的 ${fmt(sb.t95/sa.t95,1)} 倍：补料/碱液应改为液下加入叶轮附近，并核对 pH 探头位置。`);
+  if(sb.hyp>sa.hyp+0.01) notes.push(`B 厂低 DO 区（<20%）体积更大：考虑把 DO 探头移到远离分布器的位置，或提高微泡比例。`);
+  if(sb.epsPeakW>1.5*sa.epsPeakW) notes.push(`B 厂叶轮区峰值 EDR 高 ${fmt(sb.epsPeakW/sa.epsPeakW,1)} 倍：糖基化/电荷变体需在缩小模型中按 B 厂峰值做挑战。`);
+  if(sb.dead>sa.dead+0.05) notes.push(`B 厂死区体积多 ${fmt((sb.dead-sa.dead)*100,0)} 个百分点：检查底部封头与液面附近的循环。`);
+  if(!notes.length) notes.push("两厂主要流体力学指标差异在 ±50% 以内；按“恒 kLa”准则转移，CFD 未发现新增风险。");
+  $("cfdABn").innerHTML=notes.map(n=>`<li>${n}</li>`).join("");
+  $("cfdABcard").hidden=false;
+}
+
+/* ---------- 3D 剖面叠加：贴图 + 沿 CFD 平均流运动的示踪粒子 ---------- */
+function addCfdOverlay(r,Hl,add){
+  if(!cfdLast||Hl<=0) return;
+  const gr=cfdLast.res.grid; if(Math.abs(gr.R-r.T/2)>1e-6) return;
+  const field=CFD.field==="mix"?"spd":CFD.field;
+  const tex=new THREE.CanvasTexture(cfdFieldCanvas(cfdLast,field)); tex.magFilter=THREE.LinearFilter; tex.minFilter=THREE.LinearFilter;
+  const h=gr.ny*gr.dx;
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(2*gr.R,h),new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:0.9,side:THREE.DoubleSide,depthWrite:false}));
+  m.position.set(0,h/2,-0.003*gr.R); m.renderOrder=6; add(m);
+  const F=cfdLast.res.fields, n=220, pos=new Float32Array(n*3), age=new Float32Array(n);
+  const fluid=[]; for(let c=0;c<gr.solid.length;c++) if(!gr.solid[c]) fluid.push(c);
+  const spawn=k=>{ const c=fluid[Math.floor(Math.random()*fluid.length)]; pos[k*3]=gr.xc[c%gr.nx]+(Math.random()-0.5)*gr.dx; pos[k*3+1]=gr.yc[Math.floor(c/gr.nx)]+(Math.random()-0.5)*gr.dx; pos[k*3+2]=-0.006*gr.R; age[k]=Math.random()*4; };
+  for(let k=0;k<n;k++) spawn(k);
+  const geo=new THREE.BufferGeometry(); geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+  const pts=new THREE.Points(geo,new THREE.PointsMaterial({color:field==="DO"?0x203040:0xffffff,size:2,sizeAttenuation:false,transparent:true,opacity:0.85,depthWrite:false}));
+  pts.renderOrder=7; add(pts);
+  fx.push(dt=>{ for(let k=0;k<n;k++){ const x=pos[k*3], y=pos[k*3+1], i=Math.floor((x+gr.R)/gr.dx), j=Math.floor(y/gr.dx), c=j*gr.nx+i;
+      age[k]-=dt; if(i<0||i>=gr.nx||j<0||j>=gr.ny||gr.solid[c]||age[k]<0){ spawn(k); continue; }
+      pos[k*3]+=F.ux[c]*dt; pos[k*3+1]+=F.uy[c]*dt; }
+    geo.attributes.position.needsUpdate=true; });
+}
+function cfdLegend(){
+  if(!flags.cfd) return "";
+  if(cfdBusy) return `<span><b>CFD</b> 计算中…</span>`;
+  if(!cfdLast) return `<span><b>CFD 剖面</b>：尚未运行</span>`;
+  const f=CFD.field==="mix"?"spd":CFD.field, sp=cfdFieldSpec(cfdLast,f), grad=[0,0.5,1].map(t=>`rgb(${cmap(sp.map,sp.rev?1-t:t)})`).join(",");
+  return `<span><b>CFD 剖面</b> ${CFD_FIELDS[f].name} <i class="sw" style="width:46px;background:linear-gradient(90deg,${grad})"></i>${sp.fmt(sp.lo)}–${sp.fmt(sp.hi)} ${CFD_FIELDS[f].unit}${cfdLast.key!==cfdKey(S)?"（对应上次运行的参数）":""}</span>`;
+}
+
+/* ---------- 事件 ---------- */
+function initCfdUI(){
+  $("cfdQ").innerHTML=Object.keys(CFDQ).map(k=>`<option value="${k}">${CFDQ[k].label}</option>`).join(""); $("cfdQ").value=CFD.q;
+  $("cfdQ").onchange=e=>{ CFD.q=e.target.value; };
+  $("cfdInj").onchange=e=>{ CFD.inject=e.target.value; };
+  [["cfdCell","dCell"],["cfdDM","dM"],["cfdDA","dA"]].forEach(([id,k])=>{ $(id).value=CFD[k]; $(id).oninput=e=>{ CFD[k]=parseFloat(e.target.value)||0; if(k==="dCell"&&cfdLast){ cfdLast.sum=cfdSummary(cfdLast.res,cfdLast.cfg,cfdLast.r); renderCfd(); } }; });
+  $("cfdLines").onchange=e=>{ CFD.lines=e.target.checked; renderCfdField(); };
+  document.querySelectorAll("#cfdFields .btn").forEach(b=>b.addEventListener("click",()=>{ CFD.field=b.dataset.f; document.querySelectorAll("#cfdFields .btn").forEach(x=>x.setAttribute("aria-pressed",x===b)); stopCfdPlay(); if(CFD.field==="mix") cfdFrame=0; renderCfdField(); $("cfdPlay").hidden=CFD.field!=="mix"; cfdRefresh3D(); }));
+  $("cfdRun").onclick=()=>runCfd(); $("cfdAB").onclick=runCfdAB;
+  $("cfdPlay").onclick=()=>{ if(cfdTimer){ stopCfdPlay(); return; } if(!cfdLast) return; const n=cfdLast.res.mix.frames.length; $("cfdPlay").textContent="暂停";
+    cfdTimer=setInterval(()=>{ cfdFrame=(cfdFrame+1)%n; renderCfdField(); },140); };
+  $("cfdCanvas").addEventListener("mousemove",cfdHover);
+  new ResizeObserver(()=>{ if(cfdLast) renderCfdField(); else drawCfdSnap(); }).observe($("cfdView"));
+}
+function cfdRefresh3D(){ if(flags.cfd&&current){ renderResults(current); buildScene(current); } }
+function stopCfdPlay(){ if(cfdTimer){ clearInterval(cfdTimer); cfdTimer=null; } const b=$("cfdPlay"); if(b) b.textContent="播放混合过程"; }
+
+initCfdUI();
+$("tCfd").addEventListener("click",()=>{ if(flags.cfd&&!cfdBusy&&(!cfdLast||cfdLast.key!==cfdKey(S))) runCfd(); });
+window.__klaCFD={core:CFDCORE,config:cfdConfig,summary:cfdSummary,checks:cfdChecks,run:()=>runCfd(),get last(){return cfdLast;}, get worker(){return cfdWorker;},get ab(){return cfdAB;}};
 window.__klaEngine={compute:(p,o)=>compute(p,o),geometry,csWater,evaluate,S,IMP,PRESETS,BASE,setFIT:f=>{FIT=f;}};
 window.__klaSim={simulate:(b,P,o)=>simulate(b,P,o),nelderMead,batchObj,simAt,SIMP,S,BASE,PRESETS};
 buildSimForm(); simExampleData();
