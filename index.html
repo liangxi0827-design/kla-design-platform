@@ -1,0 +1,2039 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>生物反应器 kLa 设计台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* 方向：工艺工程师的仪表台。冷钢灰底、氧蓝强调、读数等宽。左参数 / 中三维 / 右读数，下方曲线、设计空间、放大与厂商资料。 */
+  --bg:#eef1f4; --panel:#ffffff; --ink:#16202b; --muted:#5b6876; --line:#d5dbe2;
+  --accent:#0a6ebd; --accent-soft:#e1eef9;
+  --ok:#1d7a4c; --warn:#a86400; --bad:#b3261e;
+  --ok-bg:#e3f3ea; --warn-bg:#fbf0dc; --bad-bg:#fbe5e3;
+  --font-display:"IBM Plex Sans Condensed","Noto Sans SC",system-ui,sans-serif;
+  --font-body:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --scene-bg:#e6eaef; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f141a; --panel:#171e26; --ink:#e3e9ef; --muted:#93a1b0; --line:#2a3542;
+    --accent:#4fa8ee; --accent-soft:#16304a; --ok:#56c48b; --warn:#e5a54a; --bad:#f07a70;
+    --ok-bg:#15301f; --warn-bg:#352812; --bad-bg:#3a1a18; --scene-bg:#121920; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f141a; --panel:#171e26; --ink:#e3e9ef; --muted:#93a1b0; --line:#2a3542;
+  --accent:#4fa8ee; --accent-soft:#16304a; --ok:#56c48b; --warn:#e5a54a; --bad:#f07a70;
+  --ok-bg:#15301f; --warn-bg:#352812; --bad-bg:#3a1a18; --scene-bg:#121920; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:14px;line-height:1.5}
+h1,h2,h3{font-family:var(--font-display);font-weight:600;text-wrap:balance;margin:0}
+h1{font-size:22px}
+h2{font-size:16px}
+h3{font-size:13px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+header p{margin:0;color:var(--muted);font-size:13px;flex:1 1 380px}
+.preset{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.preset select{min-width:300px;font-size:14px;padding:6px 8px}
+.preset-note{width:100%;font-size:12px;color:var(--muted);margin:0}
+.app{display:grid;grid-template-columns:310px minmax(0,1fr) 330px;gap:12px;padding:12px 16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.controls{padding:4px 14px 14px;max-height:calc(100vh - 110px);overflow:auto;position:sticky;top:8px}
+details{border-bottom:1px solid var(--line);padding:6px 0}
+details:last-child{border-bottom:0}
+summary{cursor:pointer;font-family:var(--font-display);font-weight:600;font-size:14px;padding:4px 0;list-style:none;display:flex;justify-content:space-between}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"＋";color:var(--muted)}
+details[open] summary::after{content:"－"}
+.field{display:grid;grid-template-columns:1fr 112px;align-items:center;gap:6px;margin:6px 0}
+.field label{color:var(--muted);font-size:13px}
+.unit{font-size:11px;color:var(--muted);margin-left:3px}
+input[type=number],select,textarea{width:100%;font:inherit;font-family:var(--font-mono);font-size:13px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:4px 6px}
+select{font-family:var(--font-body)}
+input[readonly]{opacity:.65}
+input[type=range]{width:100%;accent-color:var(--accent);margin:-2px 0 2px}
+input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.check{display:flex;gap:6px;align-items:center;color:var(--ink);font-size:13px;margin:8px 0 4px;font-weight:500}
+.hint{font-size:12px;color:var(--muted);margin:4px 0 0}
+.viewer{position:relative;min-height:600px;overflow:hidden;display:flex;flex-direction:column}
+#scene{flex:1;min-height:640px;width:100%;display:block;background:var(--scene-bg);border-radius:8px;touch-action:none}
+.viewer-bar{position:absolute;top:10px;left:10px;right:10px;display:flex;flex-wrap:wrap;gap:6px;justify-content:space-between;pointer-events:none}
+.viewer-bar > *{pointer-events:auto}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.btn{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:4px 10px;cursor:pointer}
+.btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);border-radius:6px}
+.center{display:flex;flex-direction:column;gap:12px;min-width:0}
+.state-row{width:100%;justify-content:flex-start}
+.btn.st[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.state-info{width:100%;max-width:560px;margin:0;font-size:12px;color:var(--ink);background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:6px;padding:6px 10px}
+.scen{padding:14px 16px}
+.scen-head{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;margin-bottom:8px}
+.scen-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.scen-grid h3{margin-bottom:4px}
+.scen-grid ul{margin:0;padding-left:18px}
+.scen-grid li{margin:3px 0;font-size:13px}
+.scen-flow{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:10px;font-size:12px}
+.scen-flow span.step{background:var(--accent-soft);color:var(--ink);border-radius:4px;padding:2px 8px}
+.scen-flow span.arr{color:var(--muted)}
+.chip{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;color:var(--muted)}
+.chip.ss{border-color:var(--accent);color:var(--accent)}
+.matrix td{white-space:normal;vertical-align:top;font-family:var(--font-body);text-align:left;min-width:120px}
+.matrix th{text-align:left}
+@media (max-width:900px){.scen-grid{grid-template-columns:1fr}}
+.call-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.call-svg path{fill:none;stroke:var(--muted);stroke-width:1;opacity:.75}
+.call-svg path.hi{stroke:var(--accent);stroke-width:2;opacity:1}
+.call-svg circle{fill:var(--accent);stroke:var(--panel);stroke-width:1.5}
+.call-svg circle.hi{r:6}
+.call-svg text{font:600 9px var(--font-mono);fill:#fff;text-anchor:middle;dominant-baseline:central}
+.call-list{position:absolute;right:10px;top:0;width:244px;margin:0;padding:0;list-style:none;pointer-events:none}
+.call-list li{position:absolute;right:0;width:244px;display:flex;gap:6px;align-items:center;font-size:12px;line-height:16px;color:var(--ink);background:color-mix(in srgb,var(--panel) 90%,transparent);border:1px solid var(--line);border-radius:4px;padding:1px 6px;pointer-events:auto;cursor:default;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.call-list li b{font:600 10px var(--font-mono);color:#fff;background:var(--accent);border-radius:999px;min-width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.call-list li.hi{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+@media (max-width:640px){.call-list,.call-list li{width:150px}}
+.imp-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:12px;align-items:start}
+.imp-stage{position:relative;width:100%;aspect-ratio:1.1}
+#impCanvas{width:100%;height:100%;display:block;background:var(--scene-bg);border-radius:8px}
+.imp-overlay{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:4px;padding:4px}
+.imp-cell{background:none;border:1px solid transparent;border-radius:8px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:1px;padding:6px;cursor:pointer;font:inherit;color:var(--ink)}
+.imp-cell:hover{border-color:var(--line)}
+.imp-cell span{font-size:13px;font-weight:500;background:color-mix(in srgb,var(--panel) 85%,transparent);padding:0 6px;border-radius:4px;text-align:center}
+.imp-cell small{font-size:11px;color:var(--muted);background:color-mix(in srgb,var(--panel) 85%,transparent);padding:0 6px;border-radius:4px}
+.imp-cell[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent)}
+#impRec li{margin:4px 0;max-width:90ch}
+@media (max-width:900px){.imp-grid{grid-template-columns:1fr}}
+.cal-steps{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:12px;align-items:start}
+.stepno{display:inline-flex;width:22px;height:22px;border-radius:999px;background:var(--accent);color:#fff;font:600 12px var(--font-mono);align-items:center;justify-content:center;margin-right:8px;vertical-align:2px}
+.opt-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 18px}
+ol.why li{margin:5px 0;max-width:95ch}
+#optOut td small{color:var(--muted)}
+@media (max-width:900px){.cal-steps,.opt-form{grid-template-columns:1fr}}
+.model-state{font-size:12px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--bg)}
+.chip.ev-m{border-color:var(--ok);color:var(--ok)} .chip.ev-e{border-color:var(--warn);color:var(--warn)} .chip.ev-l{border-color:var(--accent);color:var(--accent)}
+.sim-banner{font-size:13px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--panel);margin-bottom:12px}
+.sim-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:12px;align-items:start}
+.sim-form{max-height:620px;overflow:auto}
+.sim-kpi{grid-template-columns:repeat(4,minmax(0,1fr))}
+.sim-events{margin:0;padding-left:20px;font-size:13px}
+.sim-events li{margin:3px 0}
+@media (max-width:900px){.sim-grid{grid-template-columns:1fr}.sim-kpi{grid-template-columns:1fr 1fr}}
+.legend{position:absolute;left:10px;bottom:10px;right:10px;display:flex;flex-wrap:wrap;gap:4px 14px;background:color-mix(in srgb,var(--panel) 90%,transparent);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--muted)}
+.legend b{color:var(--ink);font-weight:500}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.results{padding:12px 14px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 110px);overflow:auto;position:sticky;top:8px}
+.hero{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{border:1px solid var(--line);border-radius:6px;padding:7px 10px;background:var(--bg)}
+.tile .k{font-size:12px;color:var(--muted)}
+.tile .v{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:21px;font-weight:500;line-height:1.3}
+.tile .v small{font-size:11px;color:var(--muted);font-weight:400;margin-left:3px}
+.tile.main{grid-column:1 / -1;border-left:4px solid var(--accent)}
+table{border-collapse:collapse;width:100%}
+.kv td{padding:3px 0;border-bottom:1px dashed var(--line);font-size:13px;vertical-align:top}
+.kv td:first-child{color:var(--muted);padding-right:8px}
+.kv td:last-child{text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{display:inline-block;font-size:11px;border-radius:999px;padding:1px 8px;font-weight:500;white-space:nowrap;font-family:var(--font-body)}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.checks{list-style:none;margin:0;padding:0}
+.checks li{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px}
+.checks .lbl{color:var(--ink)}
+.checks .src{grid-column:1 / -1;font-size:11px;color:var(--muted)}
+.lower{padding:0 16px 24px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px;flex-wrap:wrap}
+.tab{font:inherit;font-family:var(--font-display);font-weight:600;font-size:14px;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:8px 14px;cursor:pointer}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.panel{display:none}
+.panel.active{display:block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.chart-card{padding:12px 14px}
+.chart-card p{margin:2px 0 6px;color:var(--muted);font-size:12px}
+.chart{width:100%;overflow-x:auto}
+.chart svg{display:block;width:100%;height:auto;min-width:420px}
+.su-grid{display:grid;grid-template-columns:1fr 1fr 2.2fr;gap:12px;align-items:start}
+.su-card{padding:12px 14px}
+.tbl{overflow-x:auto}
+.tbl th,.tbl td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap}
+.tbl th{font-family:var(--font-body);color:var(--muted);font-weight:500;font-size:12px}
+.tbl td:first-child,.tbl th:first-child{text-align:left;font-family:var(--font-body)}
+.tbl tr.src td{background:var(--accent-soft)}
+.vendor td,.vendor th{text-align:left;white-space:normal;font-family:var(--font-body);vertical-align:top;min-width:110px}
+.model-doc{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px}
+.doc{padding:14px 18px}
+.doc p,.doc li{max-width:72ch}
+.eq{font-family:var(--font-mono);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:6px 0 10px;overflow-x:auto;white-space:nowrap}
+.doc ol{padding-left:20px}
+.doc li{margin:4px 0}
+a{color:var(--accent)}
+.tag{font-size:11px;color:var(--warn);border:1px solid currentColor;border-radius:4px;padding:0 4px;margin-left:4px;white-space:nowrap}
+.fit-out,.note-box{font-family:var(--font-mono);font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;margin-top:8px;white-space:pre-wrap}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+@media (max-width:1240px){
+  .app{grid-template-columns:290px minmax(0,1fr)}
+  .results{grid-column:1 / -1;position:static;max-height:none}
+  .su-grid{grid-template-columns:1fr 1fr}
+  .su-grid .su-out{grid-column:1 / -1}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr;padding:10px}
+  .controls{position:static;max-height:none}
+  .grid2,.model-doc,.su-grid{grid-template-columns:1fr}
+  .lower{padding:0 10px 20px}
+  #scene{min-height:440px} .viewer{min-height:460px}
+  .preset select{min-width:0;width:100%}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>生物反应器 kLa 设计台</h1>
+  <p>细胞培养搅拌罐：三维构型 + 功率 → kLa → OTR/OUR → pCO₂ → 剪切/孔速，按 big pharma 常用判据检查，并做 A 厂 → B 厂放大对比。</p>
+  <div class="preset">
+    <label for="preset" class="hint" style="margin:0">构型预设</label>
+    <select id="preset"></select>
+    <p class="preset-note" id="presetNote"></p>
+  </div>
+</header>
+
+<main class="app">
+  <aside class="card controls" aria-label="设计参数" id="controls"></aside>
+
+  <div class="center">
+  <section class="card viewer" aria-label="反应器三维模型">
+    <canvas id="scene" aria-label="可拖动旋转的反应器三维模型"></canvas>
+    <div class="viewer-bar">
+      <div class="chips" role="group" aria-label="显示选项">
+        <button class="btn" id="tCut" aria-pressed="true">剖切</button>
+        <button class="btn" id="tFlow" aria-pressed="true">流型</button>
+        <button class="btn" id="tEdr" aria-pressed="false">高能耗区</button>
+        <button class="btn" id="tBub" aria-pressed="true">气泡</button>
+        <button class="btn" id="tLiq" aria-pressed="true">液体</button>
+        <button class="btn" id="tDims" aria-pressed="true">尺寸</button>
+        <button class="btn" id="tLbl" aria-pressed="false">部件名</button>
+        <button class="btn" id="tAnim" aria-pressed="true">动画</button>
+      </div>
+      <div class="chips">
+        <button class="btn" id="vFront">正视</button>
+        <button class="btn" id="vIso">轴测</button>
+        <button class="btn" id="vTop">俯视</button>
+      </div>
+      <div class="chips state-row" role="group" aria-label="工艺状态">
+        <span class="hint" style="margin:0;align-self:center">工艺状态</span>
+        <button class="btn st" data-st="run" aria-pressed="true">培养</button>
+        <button class="btn st" data-st="cip" aria-pressed="false">CIP 清洗</button>
+        <button class="btn st" data-st="sip" aria-pressed="false">SIP 灭菌</button>
+        <button class="btn st" data-st="harvest" aria-pressed="false">收获排放</button>
+      </div>
+      <p class="state-info" id="stateInfo"></p>
+    </div>
+    <svg class="call-svg" id="callSvg" aria-hidden="true"></svg>
+    <ol class="call-list" id="callList" aria-label="部件名称"></ol>
+    <div class="legend" id="legend"></div>
+  </section>
+  <section class="card scen" id="scen" aria-label="应用场景"></section>
+  </div>
+
+  <aside class="card results" aria-label="计算结果">
+    <div class="hero">
+      <div class="tile main"><div class="k">体积传氧系数 kLa（培养温度）</div><div class="v" id="oKla">–</div></div>
+      <div class="tile"><div class="k">最大供氧 OTR</div><div class="v" id="oOtr">–</div></div>
+      <div class="tile"><div class="k">峰值耗氧 OUR</div><div class="v" id="oOur">–</div></div>
+      <div class="tile"><div class="k">供氧裕度</div><div class="v" id="oMargin">–</div></div>
+      <div class="tile"><div class="k">稳态 pCO₂</div><div class="v" id="oPco2">–</div></div>
+    </div>
+    <div class="model-state" id="modelState"></div>
+    <div><h3>设计判据检查</h3><p class="hint" style="margin:0 0 4px">满足 / 不满足用户设定限值；“证据不足”= 依据为估算或外推、且离限值不到 20%。标签为证据等级。</p><ul class="checks" id="checks"></ul></div>
+    <div><h3>几何 · 流动 · 气体</h3><table class="kv" id="kv"></table></div>
+  </aside>
+</main>
+
+<section class="lower">
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-curves" aria-selected="true" aria-controls="p-curves">工况曲线</button>
+    <button class="tab" role="tab" id="tab-space" aria-selected="false" aria-controls="p-space">设计空间</button>
+    <button class="tab" role="tab" id="tab-scale" aria-selected="false" aria-controls="p-scale">放大 / 场地转移</button>
+    <button class="tab" role="tab" id="tab-imp" aria-selected="false" aria-controls="p-imp">叶轮选型</button>
+    <button class="tab" role="tab" id="tab-scen" aria-selected="false" aria-controls="p-scen">应用场景对比</button>
+    <button class="tab" role="tab" id="tab-vendor" aria-selected="false" aria-controls="p-vendor">厂商公开参数</button>
+    <button class="tab" role="tab" id="tab-fit" aria-selected="false" aria-controls="p-fit">实测校准与优化</button>
+    <button class="tab" role="tab" id="tab-sim" aria-selected="false" aria-controls="p-sim">批次动态模拟</button>
+    <button class="tab" role="tab" id="tab-doc" aria-selected="false" aria-controls="p-doc">模型与公式</button>
+  </div>
+
+  <div class="panel active" id="p-curves" role="tabpanel">
+    <div class="grid2">
+      <div class="card chart-card"><h2>kLa 随转速变化</h2><p>三条线为微泡通气量的 0.5×、1×、2×（大泡通气不变）；虚线为峰值细胞密度下的需求 kLa；圆点为当前工况。</p><div class="chart" id="c1"></div></div>
+      <div class="card chart-card"><h2>供氧能力与细胞密度</h2><p>斜线为耗氧 OUR；水平线为当前 kLa 下微泡气不同 O₂ 分数的最大 OTR。交点是可支撑的最高活细胞密度。</p><div class="chart" id="c2"></div></div>
+      <div class="card chart-card"><h2>pCO₂ 与大泡通气量</h2><p>峰值 VCD 下的稳态 pCO₂。绿色带为 40–120 mmHg 目标区间，红虚线为 150 mmHg。</p><div class="chart" id="c5"></div></div>
+      <div class="card chart-card"><h2>各级叶轮功率与能耗</h2><p>每级未通气功率与局部最大能量耗散率估算（ε_max = φ·Pg/V）。虚线为糖基化开始偏移的 6×10⁴ W/m³。</p><div class="chart" id="c6"></div></div>
+    </div>
+  </div>
+
+  <div class="panel" id="p-space" role="tabpanel">
+    <div class="card chart-card">
+      <h2>转速 × 微泡通气量设计空间</h2>
+      <p>每个格子是一组（转速, 微泡 vvm）。绿色：供氧满足且全部判据通过，颜色越深 kLa 越高；黄色：供氧满足但有判据不满足（混合时间、Re、间距、淹没不计入）；红色：供氧不足。白点为当前工况。大泡通气量、O₂ 分数、细胞参数取左侧当前值。</p>
+      <div class="chart" id="c4"></div>
+      <p id="spaceNote"></p>
+    </div>
+  </div>
+
+  <div class="panel" id="p-scale" role="tabpanel">
+    <div class="su-grid">
+      <div class="card su-card" id="suSrc"><h2>源工厂（A 厂）</h2></div>
+      <div class="card su-card" id="suTgt"><h2>目标工厂（B 厂）</h2></div>
+      <div class="card su-card su-out">
+        <h2>不同放大准则下的目标工况</h2>
+        <div class="row">
+          <label for="suGas" class="hint" style="margin:0">通气放大方式</label>
+          <select id="suGas" style="width:auto"><option value="vvm">恒 vvm</option><option value="vs">恒表观气速 vs</option></select>
+          <button class="btn primary" id="suFromMain">用主面板参数作为源工厂</button>
+          <button class="btn primary" id="suToMain">把目标（恒 kLa）载入三维模型</button>
+        </div>
+        <div class="tbl" style="margin-top:10px"><table id="suTable"></table></div>
+        <div class="note-box" id="suNote"></div>
+        <p class="hint">细胞培养放大很难让 P/V、叶尖速度、kLa、混合时间、pCO₂ 同时相等。大药企的常见做法是先保证供氧（kLa 或传氧通量）和 pCO₂，再检查剪切与孔速是否仍在窗口内。表中标黄/红的是超出判据的项。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="p-imp" role="tabpanel">
+    <div class="imp-grid">
+      <div class="card chart-card">
+        <h2>常用搅拌叶轮（三维）</h2>
+        <p>点击卡片查看参数。绿色锥体是流型示意：Rushton 径向外推，斜叶与翼型轴向下推，象耳式与 XDR 型上推。蓝圈为当前选中。</p>
+        <div class="imp-stage"><canvas id="impCanvas" aria-label="叶轮三维展示"></canvas><div class="imp-overlay" id="impOverlay"></div></div>
+      </div>
+      <div class="card doc" id="impDetail"></div>
+    </div>
+    <div class="card doc" style="margin-top:12px">
+      <h2>按工艺选型</h2>
+      <div class="row"><label for="impCell" class="hint" style="margin:0">细胞 / 工艺</label>
+        <select id="impCell" style="width:auto"><option value="cho">CHO 悬浮 · 常规补料分批</option><option value="dense">高密度 / 高 OUR（强化补料、N-1 灌流）</option><option value="carrier">微载体 / 贴壁细胞</option><option value="micro">微生物发酵（参考）</option></select>
+        <label for="impDt" class="hint" style="margin:0 0 0 12px">翼型 / 象耳式方案的 D/T</label>
+        <select id="impDt" style="width:auto"><option value="same">同当前</option><option value="0.45">0.45</option><option value="0.5" selected>0.50</option></select></div>
+      <ul id="impRec"></ul>
+      <h2 style="margin-top:12px">同等 Pg/V 下的方案对比</h2>
+      <div class="tbl"><table id="impCompare"></table></div>
+      <p class="hint" id="impNote"></p>
+      <p class="hint">参考：<a href="https://bvbvf1.bib-bvb.de/vufind/PrimoRecord/cdi_proquest_miscellaneous_15737771">高实度翼型与 Rushton 对比</a> · <a href="https://skoge.folk.ntnu.no/prost/proceedings/aiche-2008/data/papers/P132104.HTM">Nienow 2008：象耳式是否低剪切</a> · <a href="https://discovery.ucl.ac.uk/10165784/1/1-s2.0-S000925092300101X-main.pdf">10–150 W/m³ 对 CHO 的影响</a> · <a href="https://core.ac.uk/download/12039906.pdf">上推与下推轴流的气液传质</a> · <a href="https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/10883076">A310 + A315 专利</a> · <a href="https://www.scribd.com/document/618865435/Lightnin-Mixers">Lightnin 叶轮资料</a> · <a href="https://orbi.uliege.be/handle/2268/72557">微载体叶轮选型</a></p>
+    </div>
+  </div>
+  <div class="panel" id="p-scen" role="tabpanel">
+    <div class="card doc">
+      <h2>一次性还是不锈钢：按场景选</h2>
+      <div class="tbl" style="margin-top:8px"><table class="matrix" id="scenMatrix"></table></div>
+      <h2 style="margin-top:16px">选型要点</h2>
+      <ul id="scenGuide"></ul>
+    </div>
+  </div>
+  <div class="panel" id="p-vendor" role="tabpanel">
+    <div class="card doc">
+      <h2>主流一次性反应器 2000 L 级公开参数</h2>
+      <p class="hint">以下数字摘自厂商数据表、应用说明和同行评议文献；“反推”表示由公开数据计算得到，非厂商直接给出。</p>
+      <div class="tbl" style="margin-top:8px"><table class="vendor" id="vendorTable"></table></div>
+      <h2 style="margin-top:18px">大型不锈钢罐与 big pharma 经验</h2>
+      <ul>
+        <li>Lonza 和 Genentech 已安装 20 m³ 级不锈钢细胞培养罐；商业工况平均能耗多在 10–20 W/m³，细胞在平均能耗高至 250 W/m³ 时仍生长到相同密度（Nienow）。</li>
+        <li>Roche 12,500 L 级三级叶轮罐的研究表明，在细胞培养通气条件下，因通气后液体有效密度下降，功率损失可达 50%（Sieblist 博士论文）。</li>
+        <li>BMS 在 5,000 L 与 25,000 L 罐上建立了 CO₂ 去除模型：去除速率取决于通气量、气泡停留时间和气泡被 CO₂ 饱和所需的时间，而不是 CO₂ 的 kLa。</li>
+        <li>Genentech（Mostafa &amp; Gu 2003）：中试规模 dCO₂ 达 179 mmHg，比表达下降 40%；通过提高通气等手段把 dCO₂ 控制在 40–120 mmHg，比表达提高 41%。</li>
+        <li>12,000 L 罐中钻孔分布器的出口气速高达 170 m/s，导致放大性能变差；更换孔更多、孔径更大的分布器后恢复。文献认为接近或超过 30 m/s 即对剪切敏感的细胞有害。</li>
+        <li>CHO 糖基化在能量耗散率 ≥ 6×10⁴ W/m³ 时开始偏移，比细胞破碎（LDH 释放）阈值低两个数量级。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="panel" id="p-fit" role="tabpanel">
+    <div class="cal-steps">
+      <div class="card doc">
+        <h2><span class="stepno">1</span>录入实测 kLa</h2>
+        <p class="hint">每行一个实测点：<b>转速 rpm, 微泡 vvm, 大泡 vvm, kLa (h⁻¹)</b>，逗号、空格或 Excel 的 Tab 分隔都可以；只有一路通气时可写 3 列（转速, vvm, kLa）。几何、叶轮、分布器取主面板当前设置。下面是示例数据，请换成本厂罐的 kLa 图谱。</p>
+        <textarea id="fitData" rows="11"># rpm, 微泡vvm, 大泡vvm, kLa(h-1)
+40, 0.005, 0, 4.1
+40, 0.010, 0, 5.9
+40, 0.020, 0, 8.2
+80, 0.005, 0, 6.9
+80, 0.010, 0, 9.8
+80, 0.020, 0, 13.6
+110, 0.005, 0, 8.8
+110, 0.010, 0, 12.4
+110, 0.020, 0, 17.5</textarea>
+        <div class="field"><label for="calCond">测定条件</label><select id="calCond"><option value="culture">培养基、培养温度（推荐）</option><option value="water">水 / PBS、20 °C</option></select></div>
+        <div class="field"><label for="calTau">DO 探头响应时间 τ₆₃<span class="unit">s，选填</span></label><input id="calTau" type="number" step="1" min="0" placeholder="例如 20"></div>
+        <h3 style="margin-top:10px">过程实测（选填，用于校准）</h3>
+        <div class="field"><label for="calOUR">峰值 OUR（尾气）<span class="unit">mmol/L/h</span></label><input id="calOUR" type="number" step="0.1" min="0"></div>
+        <div class="field"><label for="calVCD">对应 VCD<span class="unit">10⁶/mL</span></label><input id="calVCD" type="number" step="0.5" min="0"></div>
+        <div class="field"><label for="calPCO2">当前工况实测 pCO₂<span class="unit">mmHg</span></label><input id="calPCO2" type="number" step="1" min="0"></div>
+        <div class="field"><label for="calMix">当前工况实测混合时间 θ₉₅<span class="unit">s</span></label><input id="calMix" type="number" step="1" min="0"></div>
+        <div class="row"><button class="btn primary" id="fitRun">2 · 校准并诊断</button></div>
+      </div>
+      <div class="card doc">
+        <h2><span class="stepno">2</span>校准结果与诊断</h2>
+        <div class="fit-out" id="fitOut">尚未校准。点击左侧“校准并诊断”。</div>
+        <ul class="checks" id="calDiag" style="margin-top:8px"></ul>
+        <div class="row"><button class="btn primary" id="fitApply" disabled>应用拟合式到主模型</button><button class="btn primary" id="calApplyProc" disabled>应用过程校准</button></div>
+        <div class="tbl" style="margin-top:10px"><table id="calTable"></table></div>
+        <div class="chart" id="c3" style="margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="card doc" style="margin-top:12px">
+      <h2><span class="stepno">3</span>优化目标与约束</h2>
+      <div class="opt-form">
+        <div class="field"><label for="optPrio">优化优先</label><select id="optPrio"><option value="energy">低能耗 / 低剪切（P/V 最低）</option><option value="oxygen">省纯氧与气量</option><option value="robust">最稳健（各判据余量最大）</option></select></div>
+        <div class="field"><label for="optMargin">供氧裕度 OTR/OUR ≥</label><input id="optMargin" type="number" step="0.05" value="1.2"></div>
+        <div class="field"><label for="optXmax">O₂ 分数上限</label><input id="optXmax" type="number" step="0.05" value="0.8"></div>
+        <div class="field"><label for="optVM">微泡通气上限<span class="unit">vvm</span></label><input id="optVM" type="number" step="0.005" value="0.05"></div>
+        <div class="field"><label for="optVA">大泡通气上限<span class="unit">vvm</span></label><input id="optVA" type="number" step="0.005" value="0.08"></div>
+        <div class="field"><label for="optVCD">按此峰值 VCD 优化<span class="unit">10⁶/mL</span></label><input id="optVCD" type="number" step="1"></div>
+        <div class="field"><label for="optMix">混合时间上限<span class="unit">s，可空</span></label><input id="optMix" type="number" step="5" min="0" placeholder="不限制"></div>
+      </div>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="optUseFit" checked> 使用实测拟合式</label>
+        <label class="check"><input type="checkbox" id="optFreeRpm" checked> 可调转速</label>
+        <label class="check"><input type="checkbox" id="optFreeVM" checked> 可调微泡</label>
+        <label class="check"><input type="checkbox" id="optFreeVA" checked> 可调大泡</label>
+        <label class="check"><input type="checkbox" id="optFreeX" checked> 可调 O₂ 分数</label>
+      </div>
+      <p class="hint">其他限值（叶尖速度、P/V、ε_max、孔速、总通气、pCO₂ 窗口、设备转速上限）取左侧“设计限值”。</p>
+      <div class="row"><button class="btn primary" id="optRun">4 · 生成优化建议</button></div>
+    </div>
+    <div class="card doc" style="margin-top:12px" id="optBox">
+      <h2><span class="stepno">4</span>推荐参数与理由</h2>
+      <p class="hint" id="optEmpty">先完成第 2 步校准，再点击“生成优化建议”。没有实测数据时也可以直接用当前模型优化。</p>
+      <div id="optOut"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="p-sim" role="tabpanel">
+    <div class="sim-banner" id="simBanner"></div>
+    <div class="sim-grid">
+      <div class="card doc sim-form">
+        <h2>工艺与模型参数</h2>
+        <div id="simForm"></div>
+        <div class="row">
+          <button class="btn primary" id="simRun">运行模拟</button>
+          <label class="check" style="margin:0"><input type="checkbox" id="simCompare"> 叠加 A 厂 / B 厂（放大页设备）</label>
+        </div>
+      </div>
+      <div class="sim-out">
+        <div class="hero sim-kpi" id="simKpi"></div>
+        <div class="card doc" style="margin-top:12px"><h3>控制与风险事件</h3><ol class="sim-events" id="simEvents"></ol></div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:12px">
+      <div class="card chart-card"><h2>活细胞密度与活率</h2><p>实线 VCD（左轴）；虚线活率 %（同图，按 0–100 刻度）。圆点为实测批次。</p><div class="chart" id="sc1"></div></div>
+      <div class="card chart-card"><h2>葡萄糖、乳酸、氨</h2><p>mM。圆点为实测批次。</p><div class="chart" id="sc2"></div></div>
+      <div class="card chart-card"><h2>滴度</h2><p>g/L。圆点为实测批次。</p><div class="chart" id="sc3"></div></div>
+      <div class="card chart-card"><h2>耗氧与供氧能力</h2><p>OUR 与当前控制上限下的最大 OTR（mmol/L/h）；二者交叉即控制用尽。</p><div class="chart" id="sc4"></div></div>
+      <div class="card chart-card"><h2>DO 串级动作</h2><p>微泡 O₂ 分数 %、转速 rpm、微泡与大泡通气（×1000 vvm）。</p><div class="chart" id="sc5"></div></div>
+      <div class="card chart-card"><h2>溶氧与 pCO₂</h2><p>DO（% 空气饱和）与 pCO₂（mmHg）；绿色带为 pCO₂ 目标区间。</p><div class="chart" id="sc6"></div></div>
+    </div>
+    <div class="card doc" style="margin-top:12px">
+      <h2>导入实测批次并识别参数</h2>
+      <p class="hint">每行：<b>天, VCD(10⁶/mL), 活率%, 葡萄糖 mM, 乳酸 mM, 滴度 g/L</b>；缺测写 <code>-</code>。训练批参与拟合；验证批不参与拟合，只用来检验预测。下方为合成示例数据。</p>
+      <div class="grid2">
+        <div><label for="simTrain" class="hint">训练批</label><textarea id="simTrain" rows="9"></textarea></div>
+        <div><label for="simValid" class="hint">验证批（选填）</label><textarea id="simValid" rows="9"></textarea></div>
+      </div>
+      <div class="row">
+        <span class="hint" style="margin:0">拟合参数：</span>
+        <label class="check" style="margin:0"><input type="checkbox" class="fitp" value="muMax" checked> μmax</label>
+        <label class="check" style="margin:0"><input type="checkbox" class="fitp" value="kd0" checked> kd</label>
+        <label class="check" style="margin:0"><input type="checkbox" class="fitp" value="qP" checked> qP</label>
+        <label class="check" style="margin:0"><input type="checkbox" class="fitp" value="Yxg" checked> Yx/glc</label>
+        <label class="check" style="margin:0"><input type="checkbox" class="fitp" value="Ylg"> Ylac/glc</label>
+        <label class="check" style="margin:0"><input type="checkbox" class="fitp" value="KIlac"> KI,lac</label>
+        <button class="btn primary" id="simFit">识别参数</button>
+        <button class="btn primary" id="simFitApply" disabled>应用识别结果</button>
+      </div>
+      <div class="fit-out" id="simFitOut">尚未识别。</div>
+    </div>
+  </div>
+
+  <div class="panel" id="p-doc" role="tabpanel">
+    <div class="model-doc">
+      <div class="card doc">
+        <h2>计算链</h2>
+        <ol>
+          <li><b>几何</b>：V = (π/4)T²(H − h_d) + V_head。2:1 椭圆封头 h_d = T/4、V_head = πT³/24；碟形封头 h_d ≈ 0.169T、V_head ≈ 0.0809T³<span class="tag">近似</span>；平底 h_d = 0。由 V 与 H/T 反算 T。</li>
+          <li><b>功率</b>：逐级叠加 <div class="eq">P₀ = Σ Np_i·ρ·N³·D⁵ ·(间距 &lt; D 时上层 ×0.8)</div>通气后 Fl = Q/(ND³)，Fl&lt;0.035 时 Pg/P₀ = 1 − 1.26Fl，否则 0.62 − 1.85Fl。<span class="tag">待实测校准</span></li>
+          <li><b>双分布器 kLa</b>：<div class="eq">kLa = K·(Pg/V)^α·(Σ w_i·vs_i)^β·f_介质·1.024^(T−20) ， w_i = f_i^(1/β)</div>单分布器时退化为 K(Pg/V)^α·vs^β·f。Van’t Riet 聚并体系 K=0.026、α=0.4、β=0.5。各分布器对传质的贡献份额 s_i = w_i·vs_i / Σ。<span class="tag">近似</span></li>
+          <li><b>溶氧</b>：Benson–Krause 饱和浓度 × 盐析系数 × 平均绝压 × O₂ 分数/0.2095；C*_eff = Σ s_i·C*_i，C_L = DO% × 罐顶压力下的空气饱和值。<div class="eq">OTR = kLa(C*_eff − C_L) ， OUR = qO₂·VCD</div></li>
+          <li><b>pCO₂（稳态，气相平推流）</b>：<div class="eq">pCO₂ = CER·V·P̄ / Σ G_i(1 − e^(−NTU_i)) ， NTU_i = kLa_CO₂,i·V·H_CO₂·P̄ / G_i</div>CER = RQ·OUR，kLa_CO₂ = 0.89·kLa_O₂·s_i，G_i 为标准摩尔气量，H_CO₂ 按 van’t Hoff 校正到培养温度。小气泡 NTU 大、很快饱和，CO₂ 去除基本由通气量决定，这与 BMS 模型的结论一致。未计液面曲面换气和加碱带入的碳酸氢盐。<span class="tag">待实测校准</span></li>
+          <li><b>出口气速</b>：GEV = Q_实际 / (n_孔·πd²/4)，Q 按罐底压力和培养温度折算。</li>
+          <li><b>剪切</b>：ε_max = φ·Pg/V，φ 默认 Rushton 100、斜叶 60、翼型 40（叶轮区局部能耗可比平均高两个数量级）。Kolmogorov η = (ν³/ε)^¼。<span class="tag">待实测校准</span></li>
+          <li><b>混合与循环</b>：θ₉₅ = 5.9·T^(2/3)·ε^(−1/3)·(D/T)^(−1/3)·max(1, H/T)^2.43；循环时间 t_c = V/(Σ N_Q·N·D³)。<span class="tag">待实测校准</span></li>
+        </ol>
+      </div>
+      <div class="card doc">
+        <h2>参考资料</h2>
+        <ol>
+          <li><a href="https://cdn.cytivalifesciences.com/api/public/content/digi-23694-pdf">Cytiva：Xcellerex XDR-50 至 XDR-2000 数据表</a></li>
+          <li><a href="https://cytiva-delivery.sitecorecontenthub.cloud/api/public/content/digi-18311-original">Cytiva：XDR 系列工程表征</a></li>
+          <li><a href="https://analyticalsciencejournals.onlinelibrary.wiley.com/doi/10.1002/bit.28529">Kreitmayer 2023：几何不相似一次性反应器的放大</a></li>
+          <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3980816/">Sartorius：BIOSTAT STR 50–2000 L 设计空间</a></li>
+          <li><a href="https://eu-assets.contentstack.com/v3/assets/blt0a48a1f3edca9eb0/bltf342d9b22f93fff3/658c28662ef467040a889d7f/12-8-SSBsup-DeWildeSecured.pdf">BioProcess Int. 2014：BIOSTAT STR 放大参数表</a></li>
+          <li><a href="https://www.sartorius.com/download/703810/psc-manufacturing-solution-sartorius-pdf-data.pdf">Sartorius：Biostat STR 数据表（通气上限）</a></li>
+          <li><a href="https://documents.thermofisher.com/TFS-Assets/BPD/brochures/hyperforma-5-1-single-use-bioreactor-data-sheet-2000L.pdf">Thermo：HyPerforma 5:1 2000 L 数据表</a></li>
+          <li><a href="https://documents.thermofisher.com/TFS-Assets/BPD/Reference-Materials/hyperforma-sub-application-enhancements-white-paper.pdf">Thermo：S.U.B. 白皮书（19.6° 斜插驱动）</a></li>
+          <li><a href="https://opendata.uni-halle.de/bitstream/1981185920/7773/1/OnlineVersion_Dissertation_Sieblist_19122012.pdf">Sieblist（Roche）大型细胞培养罐博士论文</a></li>
+          <li><a href="https://core.ac.uk/download/185672463.pdf">Xing 等（BMS）：生产规模 CO₂ 去除模型</a></li>
+          <li><a href="https://vufind.lboro.ac.uk/PrimoRecord/cdi_proquest_miscellaneous_73009872">Mostafa &amp; Gu 2003（Genentech）：大规模 dCO₂ 去除</a></li>
+          <li><a href="https://eld.bl.uk/catalog/100103792020_0x000001">12,000 L 罐分布器出口气速与放大</a></li>
+          <li><a href="https://www.aiche.org/conferences/aiche-annual-meeting/2013/proceeding/paper/467e-improved-mixing-and-mass-transfer-scale-design-characterization-cell-culture-single-use-1">AIChE 2013：出口气速 30 m/s 阈值</a></li>
+          <li><a href="https://zendy.io/title/10.1002/bit.22339">CHO 糖基化与能量耗散率</a></li>
+          <li><a href="https://repository.lboro.ac.uk/articles/Scale-down_studies_for_assessing_the_impact_of_different_stress_parameters_on_growth_and_product_quality_during_animal_cell_culture/9244400/files/16828247.pdf">Nienow：动物细胞培养的应力缩小模型</a></li>
+          <li><a href="https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/9670446">哺乳动物细胞培养罐专利（翼型叶轮、双分布器、间距 1–2D）</a></li>
+          <li><a href="https://hrcak.srce.hr/file/149663">Van’t Riet 关联式综述</a></li>
+          <li><a href="https://www.doi.org/10.1007/BF00353925">Gray 1996：大规模 CHO 灌流的 CO₂（RQ、pCO₂ &gt; 150 mmHg 抑制）</a></li>
+        </ol>
+        <p class="hint">“待实测校准”的式子是通用化工经验式，用于方案比选。GMP 转移请以本厂 kLa、混合时间、pCO₂ 实测和工艺验证数据为准。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const fmt=(x,d)=>isFinite(x)?Number(x).toLocaleString("zh-CN",{minimumFractionDigits:d,maximumFractionDigits:d}):"–";
+const sig=(x,n)=>{ if(!isFinite(x)) return "–"; if(x===0) return "0"; const p=Math.floor(Math.log10(Math.abs(x))); return fmt(x,Math.max(0,Math.min(6,n-1-p))); };
+const sci=x=>{ if(!isFinite(x)) return "–"; if(x===0) return "0"; const e=Math.floor(Math.log10(Math.abs(x))); const m=x/10**e; return (e>=-1&&e<=4)?sig(x,3):`${m.toFixed(1)}×10${String(e).replace(/-/,"⁻").replace(/\d/g,d=>"⁰¹²³⁴⁵⁶⁷⁸⁹"[d])}`; };
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const g=9.81;
+
+/* ===== 叶轮库 ===== */
+const IMP={
+  pbt4:{name:"45° 斜叶 4 叶",Np:1.3,Nq:0.79,phi:60,flow:"down",blades:4,pitch:45,wid:0.2},
+  sub3:{name:"45° 斜叶 3 叶（S.U.B. 型）",Np:2.1,Nq:0.75,phi:60,flow:"down",blades:3,pitch:45,wid:0.24},
+  xdr4:{name:"底装 4 叶斜叶（XDR 型）",Np:0.7,Nq:0.7,phi:60,flow:"up",blades:4,pitch:35,wid:0.2},
+  seg3:{name:"3 叶片段式（STR 型）",Np:0.72,Nq:0.6,phi:50,flow:"down",blades:3,pitch:28,wid:0.32},
+  rushton:{name:"Rushton 6 平叶圆盘",Np:5.5,Nq:0.75,phi:100,flow:"radial"},
+  hydro:{name:"翼型 3 叶（A310 类）",Np:0.3,Nq:0.56,phi:40,flow:"down",blades:3,pitch:24,wid:0.16},
+  a315:{name:"高实度翼型 4 叶（A315 类）",Np:0.75,Nq:0.73,phi:50,flow:"down",blades:4,pitch:30,wid:0.34},
+  ee:{name:"象耳式 3 叶（Elephant Ear）",Np:1.0,Nq:0.7,phi:50,flow:"up",blades:3,pitch:45,wid:0.42},
+  marine:{name:"船用推进式 3 叶",Np:0.35,Nq:0.5,phi:40,flow:"down",blades:3,pitch:30,wid:0.3}
+};
+const HEADS={ell:{k:0.25,c:Math.PI/24,s:0.5},tori:{k:0.169,c:0.0809,s:0.338},flat:{k:0,c:0,s:0}};
+const MODELS={vr_c:{K:0.026,a:0.4,b:0.5},vr_nc:{K:0.002,a:0.7,b:0.2}};
+let FIT=null;
+
+/* ===== 参数表（自动生成左侧面板） ===== */
+const impOpts=Object.keys(IMP).map(k=>[k,IMP[k].name]);
+const SCHEMA=[
+ {sec:"罐体几何",open:true,f:[
+  {id:"vol",l:"工作体积 V",u:"L",step:10,min:1},
+  {id:"ht",l:"液高/罐径 H/T",step:0.05,min:0.5,max:3},
+  {id:"head",l:"罐底封头",t:"sel",o:[["ell","2:1 椭圆封头"],["tori","碟形封头（ASME F&D）"],["flat","平底"]]},
+  {id:"material",l:"罐型",t:"sel",o:[["ss","不锈钢罐（夹套 + 半管盘管）"],["su","一次性袋 + 支撑罐"]]},
+  {id:"baffles",l:"4 块挡板（宽 T/12）",t:"chk"}]},
+ {sec:"搅拌系统",open:true,f:[
+  {id:"mount",l:"驱动方式",t:"sel",o:[["top","顶装 · 中心轴"],["top_angled","顶装 · 偏心斜插"],["bottom","底装 · 磁力耦合偏心"]]},
+  {id:"tilt",l:"轴倾角",u:"°",step:0.5,min:0,max:30},
+  {id:"offset",l:"偏心 r/R（底装=叶轮，斜插=顶部入口）",step:0.05,min:0,max:0.8},
+  {id:"nImp",l:"叶轮级数",step:1,min:1,max:4},
+  {id:"impB",l:"底层叶轮",t:"sel",o:impOpts},
+  {id:"npB",l:"底层 Np",step:0.05,min:0.05},
+  {id:"impU",l:"上层叶轮",t:"sel",o:impOpts},
+  {id:"npU",l:"上层 Np",step:0.05,min:0.05},
+  {id:"dt",l:"叶径/罐径 D/T",step:0.01,min:0.15,max:0.7},
+  {id:"cb",l:"底叶离底 C/T",step:0.01,min:0.03,max:0.8},
+  {id:"sp",l:"叶轮间距 ×D",step:0.1,min:0.5,max:3},
+  {id:"rpm",l:"转速 N",u:"rpm",step:1,min:1,sl:[5,250,1]}]},
+ {sec:"分布器（双分布器）",open:true,f:[
+  {id:"microOn",l:"微泡分布器（主要供氧）",t:"chk"},
+  {id:"microType",l:"类型",t:"sel",o:[["frit","烧结多孔 frit"],["drilled","微孔钻孔"]]},
+  {id:"pore",l:"孔径",u:"µm",step:1,min:1},
+  {id:"microN",l:"frit 盘数",step:1,min:1,max:12},
+  {id:"microHoles",l:"钻孔数（钻孔型）",step:10,min:1},
+  {id:"vvmM",l:"微泡通气",u:"vvm",step:0.001,min:0,sl:[0,0.1,0.001]},
+  {id:"xo2M",l:"微泡气 O₂ 分数",step:0.01,min:0.21,max:1},
+  {id:"fM",l:"微泡 kLa 倍数",step:0.1,min:0.1},
+  {id:"macroOn",l:"大泡分布器（主要去 CO₂）",t:"chk"},
+  {id:"macroType",l:"类型",t:"sel",o:[["ring","环形钻孔管"],["drilled","钻孔盘"],["pipe","开口管 / 三通"]]},
+  {id:"holesA",l:"孔数",step:1,min:1},
+  {id:"holeD",l:"孔径",u:"mm",step:0.1,min:0.05},
+  {id:"vvmA",l:"大泡通气",u:"vvm",step:0.001,min:0,sl:[0,0.1,0.001]},
+  {id:"xo2A",l:"大泡气 O₂ 分数",step:0.01,min:0.21,max:1},
+  {id:"fA",l:"大泡 kLa 倍数",step:0.1,min:0.1},
+  {id:"phead",l:"罐顶背压",u:"bar(g)",step:0.05,min:0},
+  {id:"gasRef",l:"vvm 参比状态",t:"sel",o:[["std0","0 °C、1 atm（标况）"],["std20","20 °C、1 atm"]]}]},
+ {sec:"介质与细胞",open:false,f:[
+  {id:"temp",l:"温度",u:"°C",step:0.1,min:20,max:40},
+  {id:"rho",l:"密度 ρ",u:"kg/m³",step:1},
+  {id:"mu",l:"黏度 μ",u:"mPa·s",step:0.05},
+  {id:"fsalt",l:"C* 盐析系数",step:0.01},
+  {id:"fmed",l:"介质/消泡剂 kLa 校正",step:0.05},
+  {id:"vcd",l:"峰值 VCD",u:"10⁶/mL",step:1,min:0},
+  {id:"qo2",l:"qO₂",u:"pmol/细胞/h",step:0.01,min:0.01},
+  {id:"rq",l:"呼吸商 RQ",step:0.01,min:0.1},
+  {id:"doset",l:"DO 设定",u:"%空饱",step:1,min:1,max:100}]},
+ {sec:"模型系数",open:false,f:[
+  {id:"model",l:"kLa 关联式",t:"sel",o:[["vr_c","Van’t Riet · 聚并体系"],["vr_nc","Van’t Riet · 非聚并"],["custom","自定义 K·(P/V)^α·vs^β"],["fit","本厂实测拟合式"]]},
+  {id:"K",l:"K",step:"any"},{id:"alpha",l:"α（P/V 指数）",step:"any"},{id:"beta",l:"β（vs 指数）",step:"any"},
+  {id:"tcorr",l:"温度校正 1.024^(T−20)",t:"chk"},
+  {id:"kco2",l:"kLa_CO₂ / kLa_O₂",step:0.01},
+  {id:"phi",l:"ε_max / ε_平均 φ",step:5,min:1},
+  {id:"fco2",l:"CO₂ 去除效率校正",step:0.05,min:0.05},
+  {id:"fmix",l:"混合时间校正",step:0.05,min:0.05}]},
+ {sec:"设计限值",open:false,f:[
+  {id:"marginMin",l:"供氧裕度下限 OTR/OUR",step:0.05},
+  {id:"mixMax",l:"混合时间上限",u:"s",step:5},
+  {id:"tipMax",l:"叶尖速度上限",u:"m/s",step:0.1},
+  {id:"pvMax",l:"P/V 上限",u:"W/m³",step:1},
+  {id:"edrMax",l:"ε_max 上限",u:"W/m³",step:1000},
+  {id:"gevMax",l:"出口气速上限",u:"m/s",step:1},
+  {id:"vvmMax",l:"总通气上限",u:"vvm",step:0.01},
+  {id:"pco2Lo",l:"pCO₂ 目标下限",u:"mmHg",step:1},
+  {id:"pco2Hi",l:"pCO₂ 目标上限",u:"mmHg",step:1},
+  {id:"rpmMax",l:"设备转速上限",u:"rpm",step:1}]}
+];
+
+/* ===== 预设 ===== */
+const BASE={vol:2000,ht:1.5,head:"ell",material:"ss",baffles:true,mount:"top",tilt:0,offset:0,nImp:2,impB:"pbt4",npB:1.3,impU:"pbt4",npU:1.3,dt:0.4,cb:0.3,sp:1.5,rpm:60,
+ microOn:true,microType:"frit",pore:20,microN:1,microHoles:500,vvmM:0.005,xo2M:0.5,fM:3,macroOn:true,macroType:"ring",holesA:60,holeD:1.5,vvmA:0.015,xo2A:0.21,fA:1.2,phead:0.3,
+ temp:36.8,rho:1005,mu:0.9,fsalt:0.95,fmed:1,vcd:30,qo2:0.29,rq:0.97,doset:40,
+ model:"vr_c",K:0.026,alpha:0.4,beta:0.5,tcorr:true,kco2:0.89,phi:60,fco2:1,fmix:1,
+ gasRef:"std0",marginMin:1.2,mixMax:60,tipMax:2.0,pvMax:250,edrMax:60000,gevMax:30,vvmMax:0.2,pco2Lo:40,pco2Hi:120,rpmMax:250};
+const PRESETS={
+ xdr2000:{name:"A 厂 · Cytiva Xcellerex XDR-2000（一次性，底装磁力）",
+  note:"厂商公开：H/D 1.5:1、底装磁力耦合、偏置 15°、4 叶斜叶、叶径 42 cm、无挡板、8 片 20 µm 微孔 frit、25–115 rpm、空气 2–20 L/min、P/V 建议不超过 32 W/m³。Np 0.7 由 115 rpm ≈ 32 W/m³ 反推；CO₂ 去除三通为选配。",
+  v:{vol:2000,ht:1.5,head:"ell",material:"su",baffles:false,mount:"bottom",tilt:15,offset:0.3,nImp:1,impB:"xdr4",npB:0.7,impU:"xdr4",npU:0.7,dt:0.345,cb:0.1,sp:1.4,rpm:90,
+   microType:"frit",pore:20,microN:8,vvmM:0.008,xo2M:0.6,fM:3,macroOn:true,macroType:"pipe",holesA:2,holeD:6.4,vvmA:0.025,fA:1,phi:60,pvMax:32,rpmMax:115}},
+ str2000:{name:"Sartorius Biostat STR 2000（一次性，顶装磁力）",
+  note:"厂商公开：罐体 H/D 2:1、D/T 0.38、2×3 叶片段式、间距 1.3D、组合分布器（环形 200 孔 × 0.8 mm + 微孔 0.15 mm）、微孔通气 ≤ 0.1 vvm、总通气 ≤ 0.2 vvm。液位 H/T≈1.3 与 Np≈0.72 由公开的 63 rpm / 1.6 m/s / 22.3 W/m³ 反推；微孔数为占位。",
+  v:{vol:2000,ht:1.3,head:"tori",material:"su",baffles:false,mount:"top",tilt:0,offset:0,nImp:2,impB:"seg3",npB:0.72,impU:"seg3",npU:0.72,dt:0.38,cb:0.3,sp:1.3,rpm:63,
+   microType:"drilled",pore:150,microN:1,microHoles:1000,vvmM:0.01,xo2M:0.5,fM:2.5,macroOn:true,macroType:"ring",holesA:200,holeD:0.8,vvmA:0.02,fA:1.2,phi:50,vvmMax:0.2}},
+ sub2000:{name:"Thermo HyPerforma 5:1 2000 L S.U.B.（一次性，偏心斜插）",
+  note:"厂商公开：袋径 119.4 cm、液高 178.7 cm（H/T 1.5）、1×3 叶 45° 斜叶、D/T 1/3、Np 2.1、离底 13.9 cm、驱动偏置斜插 19.6°、无挡板；5:1 型满体积用钻孔分布器（DHS），低体积用交叉流分布器，标准转速 20–75 rpm、名义 20 W/m³。钻孔数与孔径为占位。",
+  v:{vol:2000,ht:1.5,head:"ell",material:"su",baffles:false,mount:"top_angled",tilt:19.6,offset:0.55,nImp:1,impB:"sub3",npB:2.1,impU:"sub3",npU:2.1,dt:0.333,cb:0.116,sp:1.4,rpm:70,
+   microOn:false,microType:"frit",pore:20,microN:1,vvmM:0.005,xo2M:0.5,fM:3,macroOn:true,macroType:"drilled",holesA:200,holeD:0.6,vvmA:0.02,xo2A:0.45,fA:2.0,phi:60,rpmMax:75}},
+ ss3000:{name:"B 厂 · 3000 L 不锈钢（假定构型，待按图纸修改）",
+  note:"项目假定的目标罐：2:1 椭圆封头、4 挡板、2 层 45° 斜叶、微孔 frit + 环形钻孔管。所有尺寸为占位，请按 B 厂设备图纸替换。",
+  v:{vol:3000,ht:1.5,head:"ell",material:"ss",baffles:true,mount:"top",nImp:2,impB:"pbt4",npB:1.3,impU:"pbt4",npU:1.3,dt:0.4,cb:0.3,sp:1.5,rpm:60,
+   microType:"frit",pore:20,microN:1,vvmM:0.005,xo2M:0.5,fM:3,macroOn:true,macroType:"ring",holesA:60,holeD:1.5,vvmA:0.015,fA:1.2,phi:60}},
+ ss12500:{name:"大型不锈钢 12,500 L · 三级叶轮（示意）",
+  note:"构型类型参照 Roche 12,500 L 三级叶轮罐的研究；具体尺寸、叶轮型号为通用示意，非该公司图纸。",
+  v:{vol:12500,ht:1.6,head:"ell",material:"ss",baffles:true,mount:"top",nImp:3,impB:"rushton",npB:5.5,impU:"pbt4",npU:1.3,dt:0.4,cb:0.25,sp:1.4,rpm:40,
+   microType:"frit",pore:20,microN:4,vvmM:0.004,xo2M:0.6,fM:3,macroOn:true,macroType:"ring",holesA:200,holeD:2,vvmA:0.01,fA:1.2,phi:100}},
+ ss20000:{name:"大型不锈钢 20,000 L · 双翼型叶轮 + 双分布器（示意）",
+  note:"参照公开专利：翼型叶轮、两套分布器、叶轮间距 1–2 倍底叶径、顶叶液面下约 0.5 倍叶径。H/T、D/T 为通用示意值。",
+  v:{vol:20000,ht:1.2,head:"ell",material:"ss",baffles:true,mount:"top",nImp:2,impB:"hydro",npB:0.3,impU:"hydro",npU:0.3,dt:0.45,cb:0.2,sp:1.5,rpm:45,
+   microType:"frit",pore:20,microN:6,vvmM:0.003,xo2M:0.6,fM:3,macroOn:true,macroType:"ring",holesA:300,holeD:3,vvmA:0.01,fA:1.2,phi:40}}
+};
+
+/* ===== 应用场景 ===== */
+const SCEN={
+ xdr2000:{type:"su",scale:"≤2000 L / 罐",title:"一次性 · 底装磁力（A 厂现有平台）",
+  fit:["临床后期与中小批量商业化，2000 L 以内单罐批量","多产品 / CDMO 车间，换产频繁","产能靠多罐并行（scale-out）扩充"],
+  pro:["无 CIP/SIP、无清洁验证，换产快","底装磁力耦合、无轴封，袋内为无菌闭环","最小液量 400 L，可兼作种子扩增"],
+  con:["单罐上限 2000 L，量大需多罐并行，袋子耗材成本高、依赖供应","厂商建议 P/V ≤ 32 W/m³，高密度时供氧靠提高 O₂ 分数","无挡板、偏心底装，流场与不锈钢中心轴罐不相似，转移需重新表征 kLa、混合时间与 pCO₂"],
+  flow:["袋子安装 + 完整性检测","培养基灌装","接种","补料分批","收获","袋子废弃"],
+  refs:[["Cytiva 数据表","https://cdn.cytivalifesciences.com/api/public/content/digi-23694-pdf"],["Kreitmayer 2023","https://analyticalsciencejournals.onlinelibrary.wiley.com/doi/10.1002/bit.28529"]]},
+ str2000:{type:"su",scale:"≤2000 L / 罐",title:"一次性 · 顶装中心轴，几何接近不锈钢罐",
+  fit:["计划日后转到不锈钢罐的工艺：H/D、中心轴、两层叶轮与传统罐相近","需要同时兼顾供氧与 CO₂ 去除的高密度补料分批","50–2000 L 同一几何的放大链"],
+  pro:["组合分布器：微孔供氧 + 环形去 CO₂","全系列 H/D 2:1、D/T 0.38 保持不变，几何相似利于放大","可选底层 6 叶圆盘 + 上层片段式组合"],
+  con:["同样受 2000 L 单罐上限与耗材成本限制","微孔通气 ≤ 0.1 vvm、总通气 ≤ 0.2 vvm 的设备上限"],
+  flow:["袋子安装","灌装","接种","补料分批 / 灌流","收获","废弃"],
+  refs:[["Sartorius 设计空间","https://pmc.ncbi.nlm.nih.gov/articles/PMC3980816/"],["Biostat STR 数据表","https://www.sartorius.com/download/703810/psc-manufacturing-solution-sartorius-pdf-data.pdf"]]},
+ sub2000:{type:"su",scale:"400–2000 L（5:1）",title:"一次性 · 偏心斜插，5:1 调节比",
+  fit:["种子扩增与生产合并：20% 体积接种，2–3 天内补到约 85%","减少种子罐数量与转移次数","多产品车间的中试到商业化"],
+  pro:["5:1 调节比；低体积用交叉流分布器保证 kLa，满体积用钻孔分布器","偏心斜插单叶轮，无涡旋","标准转速 20–75 rpm，名义 20 W/m³"],
+  con:["单层叶轮、斜插偏心，流场与不锈钢罐差异大","低体积运行时 dCO₂ 与液面换气需单独表征"],
+  flow:["袋子安装","20% 体积接种","2–3 天补料至 85%","补料分批","收获","废弃"],
+  refs:[["5:1 低体积应用说明","https://assets.thermofisher.com/TFS-Assets/BPD/Application-Notes/efficient-operation-evaluation-5-1-sub-working-volumes-app-note.pdf"],["2000 L 数据表","https://assets.thermofisher.com/TFS-Assets/BPD/brochures/hyperforma-5-1-single-use-bioreactor-data-sheet-2000L.pdf"]]},
+ ss3000:{type:"ss",scale:"3000 L",title:"不锈钢 · B 厂目标罐（本项目）",
+  fit:["单一产品、批次多、需求稳定的商业化生产","单批产量要超过一个 2000 L 袋，但还不到万升级","从一次性 2000 L 转来的场地转移"],
+  pro:["无袋子耗材，长期单批成本低","挡板 + 中心轴 + 多层叶轮，流场可预测，放大文献多","316L 电解抛光内表面，可 CIP/SIP 重复使用"],
+  con:["要有纯蒸汽、WFI、CIP 站等公用工程","每次换产都要清洁验证，换产慢；资本投入高","从一次性转入需证明 kLa、pCO₂、剪切与混合可比（见“放大 / 场地转移”页）"],
+  flow:["CIP（碱/酸/WFI）","SIP（纯蒸汽）","灌装 + 培养基 SIP/过滤","接种","补料分批","收获","CIP"],
+  refs:[["ASME BPE 表面等级","https://astropak.com/asme-bpe-surface-finish-designations/"],["单抗场地选型框架","https://www.labmanager.com/single-use-vs-stainless-steel-bioprocessing-a-decision-framework-35482"]]},
+ ss12500:{type:"ss",scale:"10,000–15,000 L",title:"不锈钢 · 大型商业化（三级叶轮）",
+  fit:["年需求大的单抗商业化，单批几百公斤级原液","专用产品线、长期高利用率","如 Lonza Vacaville 的 12,000 / 25,000 L 不锈钢罐群"],
+  pro:["单位产品成本低（高需求时）","多层叶轮保证高液柱下的混合","成熟的 GMP 运行经验"],
+  con:["液柱高：pCO₂ 累积、混合时间变长","分布器出口气速要控制，12,000 L 曾因 170 m/s 导致放大失败","需求波动时产能闲置风险大"],
+  flow:["CIP","SIP","灌装","接种（N-1 种子罐）","补料分批","收获","CIP"],
+  refs:[["Sieblist（Roche）论文","https://opendata.uni-halle.de/bitstream/1981185920/7773/1/OnlineVersion_Dissertation_Sieblist_19122012.pdf"],["行业产能分析","https://www.pharmasalmanac.com/nice-insight/articles/is-the-bioreactor-arms-race-over"]]},
+ ss20000:{type:"ss",scale:"20,000 L 级",title:"不锈钢 · 重磅产品超大规模",
+  fit:["重磅单抗的长期大规模供应","CDMO 大产能基地","如 FUJIFILM Holly Springs 8 台 20,000 L，Lonza、Genentech 20 m³ 级罐"],
+  pro:["单批产量最大，规模经济最强","翼型叶轮功率准数低，能耗与剪切低","双分布器分别负责供氧与去 CO₂"],
+  con:["资本投入与建设周期最大","CO₂ 去除与混合是放大的主要难点","产品需求下降时产能利用率风险最高"],
+  flow:["CIP","SIP","灌装","接种（N-1）","补料分批","收获","CIP"],
+  refs:[["行业产能分析","https://www.pharmasalmanac.com/articles/is-the-bioreactor-arms-race-over"],["Nienow 应力研究","https://repository.lboro.ac.uk/articles/Scale-down_studies_for_assessing_the_impact_of_different_stress_parameters_on_growth_and_product_quality_during_animal_cell_culture/9244400/files/16828247.pdf"]]}
+};
+let curPreset="xdr2000";
+function renderScenario(){
+  const k=curPreset, sc=SCEN[k];
+  if(!sc){ $("scen").innerHTML=`<h2>自定义构型</h2><p class="hint">当前参数已偏离预设。选择顶部的构型预设可查看对应的应用场景。</p>`; return; }
+  const li=a=>a.map(x=>`<li>${x}</li>`).join("");
+  $("scen").innerHTML=`<div class="scen-head"><h2>应用场景 · ${PRESETS[k].name.replace(/（.*）/,"")}</h2><span class="chip ${sc.type}">${sc.type==="ss"?"不锈钢":"一次性"}</span><span class="chip">${sc.scale}</span><span class="hint" style="margin:0">${sc.title}</span></div>
+  <div class="scen-grid"><div><h3>适用场景</h3><ul>${li(sc.fit)}</ul></div><div><h3>优势</h3><ul>${li(sc.pro)}</ul></div><div><h3>限制与转移注意</h3><ul>${li(sc.con)}</ul></div></div>
+  <div class="scen-flow"><span class="hint" style="margin:0 6px 0 0">典型批次流程</span>${sc.flow.map((f,i)=>(i?'<span class="arr">→</span>':"")+`<span class="step">${f}</span>`).join("")}</div>
+  <p class="hint">参考：${sc.refs.map(r=>`<a href="${r[1]}">${r[0]}</a>`).join(" · ")}</p>`;
+}
+function renderScenarioMatrix(){
+  const rows=Object.keys(SCEN).map(k=>{ const sc=SCEN[k]; return `<tr><td><b>${PRESETS[k].name.replace(/（.*）/,"")}</b><br><span class="chip ${sc.type}">${sc.type==="ss"?"不锈钢":"一次性"}</span> <span class="chip">${sc.scale}</span></td><td>${sc.fit[0]}</td><td>${sc.pro[0]}</td><td>${sc.con[0]}</td></tr>`; }).join("");
+  $("scenMatrix").innerHTML=`<tr><th>构型</th><th>最适合</th><th>核心优势</th><th>主要限制</th></tr>`+rows;
+  $("scenGuide").innerHTML=[
+   `临床阶段项目多用一次性；单一产品、商业化大批量多用不锈钢（<a href="https://www.labmanager.com/single-use-vs-stainless-steel-bioprocessing-a-decision-framework-35482">Lab Manager</a>）。`,
+   `多产品车间里，清洁验证负担会随产品数成倍增加，这是一次性最有力的理由；同一份来源指出，高产量产品长期用一次性，耗材支出会侵蚀利润。`,
+   `混合模式很常见：一次性做种子链、临床和多产品车间，不锈钢做大规模稳定商业化（<a href="https://casrai.org/compare/single-use-bioreactor-vs-stainless-steel">CASRAI</a>）。`,
+   `一次性已进入商业化：AGC Biologics 规划 2000 L 与 5000 L 一次性罐；大规模端 Lonza Vacaville 用 12,000 / 25,000 L 不锈钢，FUJIFILM Holly Springs 首期 8 台 20,000 L（<a href="https://www.pharmasalmanac.com/nice-insight/articles/is-the-bioreactor-arms-race-over">Pharma’s Almanac</a>）。`,
+   `2000 L 一次性与万升不锈钢之间有体积断档，产能扩张要在“多罐并行”与“换大罐”之间权衡（<a href="https://www.bioprocessonline.com/doc/scale-up-evaluation-of-the-dynadrive-s-u-b-s-part-pilot-and-manufacturing-scale-comparison-of-dynadrive-s-u-b-capabilities-0001">BioProcess Online</a>）。`,
+   `不锈钢罐内表面常按 ASME BPE SF4（电解抛光，Ra ≤ 0.38 µm）；SIP 型机械搅拌多用冷凝水润滑的双端面机封，也可用磁力耦合搅拌免去轴封。`
+  ].map(x=>`<li>${x}</li>`).join("");
+}
+const S=Object.assign({},BASE,PRESETS.xdr2000.v);
+
+/* ===== 表单 ===== */
+function buildForm(){
+  const box=$("controls"); box.innerHTML="";
+  SCHEMA.forEach(sec=>{
+    const d=document.createElement("details"); if(sec.open) d.open=true;
+    d.innerHTML=`<summary>${sec.sec}</summary>`;
+    sec.f.forEach(f=>{
+      if(f.t==="chk"){ const l=document.createElement("label"); l.className="check"; l.innerHTML=`<input type="checkbox" id="${f.id}"> ${f.l}`; d.appendChild(l); return; }
+      const w=document.createElement("div"); w.className="field";
+      const ctl = f.t==="sel" ? `<select id="${f.id}">${f.o.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join("")}</select>`
+        : `<input id="${f.id}" type="number" step="${f.step}"${f.min!=null?` min="${f.min}"`:""}${f.max!=null?` max="${f.max}"`:""}>`;
+      w.innerHTML=`<label for="${f.id}">${f.l}${f.u?`<span class="unit">${f.u}</span>`:""}</label>${ctl}`;
+      d.appendChild(w);
+      if(f.sl){ const r=document.createElement("input"); r.type="range"; r.id=f.id+"R"; r.min=f.sl[0]; r.max=f.sl[1]; r.step=f.sl[2]; r.setAttribute("aria-label",f.l+"滑块"); d.appendChild(r); }
+    });
+    if(sec.sec.startsWith("分布器")){ const h=document.createElement("p"); h.className="hint"; h.textContent="kLa 倍数是相对“聚并体系 Van’t Riet 式”的经验系数：微泡比表面积大、倍数高，但很快被 CO₂ 饱和；大泡传氧弱，主要负责带走 CO₂。请用本厂 kLa 图谱校准。"; d.appendChild(h); }
+    box.appendChild(d);
+  });
+  SCHEMA.forEach(sec=>sec.f.forEach(f=>{
+    const el=$(f.id);
+    const ev=f.t==="chk"||f.t==="sel"?"change":"input";
+    el.addEventListener(ev,()=>{ readField(f); onField(f.id); schedule(); });
+    if(f.sl){ $(f.id+"R").addEventListener("input",()=>{ el.value=$(f.id+"R").value; readField(f); schedule(); }); }
+  }));
+}
+function allFields(){ const a=[]; SCHEMA.forEach(s=>s.f.forEach(f=>a.push(f))); return a; }
+function readField(f){ const el=$(f.id); if(f.t==="chk") S[f.id]=el.checked; else if(f.t==="sel") S[f.id]=el.value; else { const v=parseFloat(el.value); if(isFinite(v)) S[f.id]=v; } }
+function writeForm(){
+  allFields().forEach(f=>{ const el=$(f.id); if(f.t==="chk") el.checked=!!S[f.id]; else el.value=S[f.id]; if(f.sl) $(f.id+"R").value=S[f.id]; });
+  syncReadonly();
+}
+function syncReadonly(){
+  ["K","alpha","beta"].forEach(id=>$(id).readOnly = S.model!=="custom");
+  const angled=S.mount!=="top"; $("tilt").readOnly=!angled; $("offset").readOnly=!angled;
+}
+function onField(id){
+  if(id==="impB"){ S.npB=IMP[S.impB].Np; S.phi=IMP[S.impB].phi; $("npB").value=S.npB; $("phi").value=S.phi; }
+  if(id==="impU"){ S.npU=IMP[S.impU].Np; $("npU").value=S.npU; }
+  if(id==="model"){ const m=MODELS[S.model]; if(m){ S.K=m.K; S.alpha=m.a; S.beta=m.b; } if(S.model==="fit"&&FIT){ S.K=+FIT.K.toPrecision(4); S.alpha=+FIT.a.toFixed(4); S.beta=+FIT.b.toFixed(4); } ["K","alpha","beta"].forEach(k=>$(k).value=S[k]); }
+  if(id==="material"){ S.baffles=S.material==="ss"; $("baffles").checked=S.baffles; }
+  if(id==="macroType"){ S.fA=S.macroType==="pipe"?1:1.2; $("fA").value=S.fA; }
+  syncReadonly();
+}
+function applyPreset(k){
+  const pr=PRESETS[k]; const keep={}; ["temp","rho","mu","fsalt","fmed","vcd","qo2","rq","doset","model","K","alpha","beta","tcorr","kco2"].forEach(x=>keep[x]=S[x]);
+  Object.assign(S,BASE,pr.v,keep); writeForm(); $("presetNote").textContent=pr.note; curPreset=k; syncStateButtons(); renderScenario(); update(true);
+}
+
+/* ===== 计算模型 ===== */
+function geometry(p){
+  const V=p.vol/1000, h=HEADS[p.head]||HEADS.ell;
+  const T=Math.cbrt(V/(Math.PI/4*(p.ht-h.k)+h.c)), H=p.ht*T, D=p.dt*T, hd=h.k*T;
+  const n=Math.max(1,Math.round(p.nImp)), ys=[]; for(let i=0;i<n;i++) ys.push(p.cb*T+i*p.sp*D);
+  return {V,T,H,D,hd,ys,n};
+}
+function csWater(Tc){ const T=Tc+273.15; return Math.exp(-139.34411+1.575701e5/T-6.642308e7/T**2+1.2438e10/T**3-8.621949e11/T**4); }
+function compute(base,ov){
+  const p=Object.assign({},base,ov||{});
+  const G=geometry(p), {V,T,H,D,ys,n}=G;
+  const N=p.rpm/60, rho=p.rho, mu=p.mu/1000;
+  const stage=[]; let P0=0, NqSum=0;
+  for(let i=0;i<n;i++){ const type=i?p.impU:p.impB, np=i?p.npU:p.npB; const f=(i&&p.sp<1)?0.8:1; const P=f*np*rho*N**3*D**5; P0+=P; NqSum+=IMP[type].Nq; stage.push({type,np,P}); }
+  // 气量：vvm 按参比状态（标况）输入；表观气速、气体流量准数用工况（培养温度、平均绝压）体积
+  const Tk=p.temp+273.15, Tref=p.gasRef==="std20"?293.15:273.15;
+  const Ph=1.01325+p.phead, Pbot=Ph+rho*g*H/1e5, Pm=Ph+rho*g*H/2e5, PmA=Pm/1.01325;
+  const QM=p.microOn?p.vvmM*V/60:0, QA=p.macroOn?p.vvmA*V/60:0, Q=QM+QA;           // 参比状态 m³/s
+  const act=q=>q*(Tk/Tref)*(1.01325/Pm), QMa=act(QM), QAa=act(QA), Qa=QMa+QAa;     // 工况 m³/s
+  const Fl=N>0?Qa/(N*D**3):0;
+  let ratio=Fl<0.035?1-1.26*Fl:0.62-1.85*Fl; ratio=Math.min(1,Math.max(0.3,ratio));
+  const Pg=P0*ratio, PgV=Pg/V, A=Math.PI*T*T/4, vsM=QMa/A, vsA=QAa/A, vs=Qa/A;
+  // kLa
+  let K,a,b,isFit=p.model==="fit"&&FIT;
+  if(isFit){ K=FIT.K; a=FIT.a; b=FIT.b; } else if(p.model==="custom"){ K=p.K; a=p.alpha; b=p.beta; } else { ({K,a,b}=MODELS[p.model]||MODELS.vr_c); }
+  const wM=isFit?1:Math.pow(Math.max(p.fM,1e-6),1/(b||1)), wA=isFit?1:Math.pow(Math.max(p.fA,1e-6),1/(b||1));
+  const vsEff=wM*vsM+wA*vsA;
+  let kla_s=(vsEff>0&&PgV>0)?K*Math.pow(PgV,a)*Math.pow(vsEff,b):0;
+  if(!isFit||FIT.cond==="water"){ kla_s*=p.fmed; if(p.tcorr) kla_s*=Math.pow(1.024,p.temp-20); }
+  const kla=kla_s*3600, sM=vsEff>0?wM*vsM/vsEff:0, sA=vsEff>0?wA*vsA/vsEff:0;
+  // 溶氧与氧平衡（液相全混、气相平推流，计入气泡上升中的 O₂ 消耗）
+  const cs=csWater(p.temp)*p.fsalt, cUnit=cs*PmA/32;                // 空气、平均压力下 C*，mmol/L
+  const HO2=cs/32/0.2095;                                            // mol/m³/atm
+  const cStarM=cUnit*p.xo2M/0.2095, cStarA=cUnit*p.xo2A/0.2095;
+  const cStar=vsEff>0?sM*cStarM+sA*cStarA:cUnit;
+  const cAirHead=cs*(Ph/1.01325)/32, cL=p.doset/100*cAirHead;
+  const Gstd=q=>q*101325/(8.314*Tref);                               // mol/s
+  const GM=Gstd(QM), GA=Gstd(QA);
+  const ystar=cL/(HO2*PmA);
+  const ntuO=(s,G)=>G>0?(kla_s*s)*V*HO2*PmA/G:0;
+  const AM=GM*(1-Math.exp(-ntuO(sM,GM))), AA=GA*(1-Math.exp(-ntuO(sA,GA)));
+  const OTRnd=kla*(cStar-cL);                                        // 不计气相消耗（旧算法，上限）
+  const OTR=Math.max(0,(AM*(p.xo2M-ystar)+AA*(p.xo2A-ystar))/V*3600); // mmol/L/h
+  const O2in=(GM*p.xo2M+GA*p.xo2A)*3600/V;                           // mmol/L/h
+  const o2util=O2in>0?OTR/O2in:0;
+  const drive=kla>0?OTR/kla:0;
+  const OUR=p.qo2*p.vcd, klaReq=drive>0?OUR/drive:Infinity, vcdMax=p.qo2>0?OTR/p.qo2:Infinity;
+  const xMreq=(p.microOn&&AM>0)?ystar+(OUR*V/3600-AA*(p.xo2A-ystar))/AM:Infinity;
+  // CO2
+  const He=34*Math.exp(2400*(1/Tk-1/298.15)); // mol/m3/atm
+  const CER=p.rq*OUR/3600; // mol/m3/s
+  const ntu=(s,G)=>G>0?(p.kco2*kla_s*s)*V*He*PmA/G:0;
+  const ntuM=ntu(sM,GM), ntuA=ntu(sA,GA);
+  const remM=(p.fco2||1)*GM*(1-Math.exp(-ntuM)), remA=(p.fco2||1)*GA*(1-Math.exp(-ntuA));
+  const pco2=(remM+remA)>0?CER*V*PmA/(remM+remA)*760:Infinity; // mmHg
+  // 孔速
+  const qAct=q=>q*(Tk/Tref)*(1.01325/Pbot);
+  const gevA=(p.macroOn&&QA>0)?qAct(QA)/(p.holesA*Math.PI*(p.holeD/1000)**2/4):0;
+  const gevM=(p.microOn&&p.microType==="drilled"&&QM>0)?qAct(QM)/(p.microHoles*Math.PI*(p.pore/1e6)**2/4):null;
+  // 流动与剪切
+  const Re=rho*N*D*D/mu, tip=Math.PI*N*D, eps=Pg/(rho*V), nu=mu/rho;
+  const eta=eps>0?Math.pow(nu**3/eps,0.25):Infinity, edrMax=p.phi*PgV;
+  const theta=(p.fmix||1)*(eps>0?5.9*Math.pow(T,2/3)*Math.pow(eps,-1/3)*Math.pow(p.dt,-1/3)*Math.pow(Math.max(1,p.ht),2.43):Infinity);
+  const tc=N>0?V/(NqSum*N*D**3):Infinity;
+  const topSub=H-ys[ys.length-1];
+  return {HO2,PmA,cAirHead,AM,AA,ystar,OTRnd,O2in,o2util,Qa,cUnit,cStarM,cStarA,p,G,V,T,H,D,N,stage,P0,Pg,PgV,ratio,QM,QA,Q,Fl,vs,vsM,vsA,kla,sM,sA,cStar,cL,Pm,Pbot,OTR,OUR,klaReq,vcdMax,xMreq,CER,pco2,ntuM,ntuA,gevA,gevM,Re,tip,eps,eta,edrMax,theta,tc,topSub,vvm:Q*60/V};
+}
+function bisect(f,target,lo,hi,inc){ for(let i=0;i<70;i++){ const m=(lo+hi)/2, v=f(m); if((v<target)===inc) lo=m; else hi=m; } return (lo+hi)/2; }
+
+/* ===== 判据 ===== */
+function evidence(r){
+  const p=r.p, fitOn=p.model==="fit"&&FIT;
+  return {kla: fitOn?"实测校准":(r.PgV<300?"文献·外推":"文献"), co2:(p.fco2&&p.fco2!==1)?"实测校准":"估算", mix:(p.fmix&&p.fmix!==1)?"实测校准":"估算"};
+}
+function evaluate(r){
+  const p=r.p, L=[], E=evidence(r);
+  // 三态：满足 / 不满足 / 证据不足（依据为估算或外推、且离限值不到 20%）
+  const add=(lbl,val,v,lo,hi,ev,basis)=>{
+    const ok=(lo==null||v>=lo)&&(hi==null||v<=hi); let st=ok?"ok":"bad";
+    if(/估算|外推|经验/.test(ev)&&isFinite(v)&&[lo,hi].some(x=>x!=null&&x!==0&&Math.abs(v/x-1)<0.2)) st="warn";
+    L.push({lbl,val,st,src:basis,ev});
+  };
+  const m=r.OTR/r.OUR;
+  add(`供氧裕度 OTR/OUR ≥ ${p.marginMin}`,fmt(m,2)+"×",m,p.marginMin,null,E.kla,`用户设定；已计入气泡上升中的 O₂ 消耗（O₂ 利用率 ${fmt(r.o2util*100,0)}%）；kLa ${fmt(r.kla,1)} h⁻¹`);
+  add(`pCO₂ ${p.pco2Lo}–${p.pco2Hi} mmHg`,fmt(r.pco2,0)+" mmHg",r.pco2,p.pco2Lo,p.pco2Hi,E.co2,"文献：Genentech 目标 40–120；>150 抑制生长");
+  add(`叶尖速度 ≤ ${p.tipMax} m/s`,fmt(r.tip,2)+" m/s",r.tip,null,p.tipMax,"计算","文献判据：Sartorius 高密度 CHO 设计窗口");
+  add(`Pg/V 10–${p.pvMax} W/m³`,fmt(r.PgV,1)+" W/m³",r.PgV,10,p.pvMax,"计算",p.pvMax<100?"厂商建议上限；Np 见叶轮设置":"文献：Nienow 平均 250 W/m³ 内生长不受影响");
+  add(`ε_max ≤ ${sci(p.edrMax)} W/m³`,sci(r.edrMax)+" W/m³",r.edrMax,null,p.edrMax,"估算","文献：≥6×10⁴ 糖基化偏移；ε_max=φ·Pg/V 为经验估算");
+  if(p.macroOn&&r.QA>0) add(`大泡出口气速 ≤ ${p.gevMax} m/s`,fmt(r.gevA,1)+" m/s",r.gevA,null,p.gevMax,"计算","文献：12,000 L 案例 170 m/s 导致放大失败");
+  if(r.gevM!=null) add(`微孔出口气速 ≤ ${p.gevMax} m/s`,fmt(r.gevM,1)+" m/s",r.gevM,null,p.gevMax,"计算","钻孔型微泡分布器");
+  add(`混合时间 θ₉₅ ≤ ${p.mixMax} s`,fmt(r.theta,0)+" s",r.theta,null,p.mixMax,E.mix,"用户设定；经验式，H/T>1 偏保守");
+  add(`总通气 ≤ ${p.vvmMax} vvm`,fmt(r.vvm,3)+" vvm",r.vvm,null,p.vvmMax,"计算","厂商资料：Biostat STR 微泡 ≤0.1、总量 ≤0.2 vvm");
+  if(p.rpmMax<250) add(`转速 ≤ 设备上限 ${p.rpmMax} rpm`,fmt(p.rpm,0)+" rpm",p.rpm,null,p.rpmMax,"计算","厂商操作范围");
+  add("顶叶淹没 ≥ 0.5 D",fmt(r.topSub*1000,0)+" mm",r.topSub,0.5*r.D,null,"计算","专利推荐约 0.5 倍顶叶径");
+  if(r.G.n>1) add("叶轮间距 1–2 D",fmt(p.sp,1)+" D",p.sp,1,2,"经验","专利推荐 1–2 倍底叶径");
+  add("Re > 10⁴（湍流）",sci(r.Re),r.Re,1e4,null,"计算","Np 恒定的前提");
+  return L;
+}
+
+/* ===== 读数面板 ===== */
+const pill=(st,t)=>`<span class="pill ${st}">${t}</span>`;
+const stText={ok:"满足",warn:"证据不足",bad:"不满足"}, stDiag={ok:"正常",warn:"注意",bad:"异常"};
+function evClass(e){ return /实测/.test(e)?"m":/估算|外推|经验/.test(e)?"e":"l"; }
+function renderResults(r){
+  const p=r.p, m=r.OTR/r.OUR;
+  $("oKla").innerHTML=fmt(r.kla,1)+"<small>h⁻¹</small> "+`<small>需求 ${fmt(r.klaReq,1)}</small>`;
+  $("oOtr").innerHTML=fmt(r.OTR,1)+"<small>mmol/L/h</small>";
+  $("oOur").innerHTML=fmt(r.OUR,1)+"<small>mmol/L/h</small>";
+  $("oMargin").innerHTML=(isFinite(m)?fmt(m,2):"∞")+"<small>×</small> "+pill(m>=S.marginMin?"ok":m>=1?"warn":"bad",m>=S.marginMin?"充足":m>=1?"偏紧":"不足");
+  const ps=r.pco2>150?"bad":(r.pco2>p.pco2Hi||r.pco2<p.pco2Lo)?"warn":"ok";
+  $("oPco2").innerHTML=fmt(r.pco2,0)+"<small>mmHg</small> "+pill(ps,ps==="ok"?"窗口内":ps==="warn"?"窗口外":"> 150");
+  $("checks").innerHTML=evaluate(r).map(c=>`<li><span class="lbl">${c.lbl}</span><span><span class="num">${c.val}</span> ${pill(c.st,stText[c.st])}</span><span class="src"><span class="chip ev-${evClass(c.ev)}">${c.ev}</span> ${c.src}</span></li>`).join("");
+  const E=evidence(r); $("modelState").innerHTML=(S.model==="fit"&&FIT)?`${pill("ok","本厂实测校准")} n=${FIT.n||"–"}${FIT.loo!=null?`，留一交叉验证误差 ${fmt(FIT.loo,0)}%`:""}；适用范围 ${FIT.rpmR?FIT.rpmR.join("–")+" rpm":""}`:`${pill("warn","文献默认，未校准")} kLa 用 ${S.model==="vr_nc"?"Van’t Riet 非聚并式":S.model==="custom"?"自定义系数":"Van’t Riet 聚并式"}${E.kla.includes("外推")?"；当前 Pg/V 远低于该式原始数据范围（约 300–3500 W/m³），属于外推":""}。结果仅供方案比选。`;
+  const stTxt=r.stage.map((s,i)=>`${i?"上":"底"}${i>1?i:""}：${IMP[s.type].name}`).join("<br>");
+  const rows=[
+    ["罐径 T / 液高 H",fmt(r.T*1000,0)+" / "+fmt(r.H*1000,0)+" mm"],["叶径 D",fmt(r.D*1000,0)+" mm"],
+    ["叶轮",`<span style="font-family:var(--font-body)">${stTxt}</span>`],
+    ["P₀ → Pg（Pg/P₀ "+fmt(r.ratio,3)+"）",fmt(r.P0,1)+" → "+fmt(r.Pg,1)+" W"],["Pg/V",fmt(r.PgV,1)+" W/m³"],
+    ["叶尖速度",fmt(r.tip,2)+" m/s"],["Re",sci(r.Re)],["ε_max（估）",sci(r.edrMax)+" W/m³"],["Kolmogorov η（平均）",fmt(r.eta*1e6,0)+" µm"],
+    ["混合时间 θ₉₅ / 循环时间",fmt(r.theta,0)+" / "+fmt(r.tc,1)+" s"],
+    ["微泡气量",fmt(r.QM*60000,1)+" L/min · "+fmt(p.xo2M*100,0)+"% O₂"],["大泡气量",fmt(r.QA*60000,1)+" L/min · "+fmt(p.xo2A*100,0)+"% O₂"],
+    ["表观气速 vs",fmt(r.vs*1000,3)+" mm/s"],["传质份额 微泡/大泡",fmt(r.sM*100,0)+" / "+fmt(r.sA*100,0)+" %"],
+    ["C*_eff / C_L",fmt(r.cStar,3)+" / "+fmt(r.cL,3)+" mmol/L"],["平均绝压 / 罐底绝压",fmt(r.Pm,2)+" / "+fmt(r.Pbot,2)+" bar"],
+    ["O₂ 通入量 / 利用率",fmt(r.O2in,1)+" mmol/L/h · "+fmt(r.o2util*100,0)+"%"],["OTR：计气相消耗 / 不计",fmt(r.OTR,1)+" / "+fmt(r.OTRnd,1)],["CER",fmt(r.CER*3600,1)+" mmol/L/h"],["CO₂ 饱和度 NTU 微/大",fmt(r.ntuM,1)+" / "+fmt(r.ntuA,1)],
+    ["可支撑最高 VCD",fmt(r.vcdMax,1)+" ×10⁶/mL"],
+    ["峰值 OUR 所需微泡 O₂",isFinite(r.xMreq)?(r.xMreq>1?"> 100%（需提 kLa）":fmt(Math.max(r.xMreq,0.21)*100,0)+" %"):"–"]
+  ];
+  $("kv").innerHTML=rows.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td></tr>`).join("");
+  const edrC=r.edrMax/p.edrMax;
+  $("legend").innerHTML=`<span><b>${fmt(p.vol,0)} L</b> · T ${fmt(r.T*1000,0)} · H ${fmt(r.H*1000,0)} · D ${fmt(r.D*1000,0)} mm · ${fmt(p.rpm,0)} rpm</span>`+
+   `<span><i class="sw" style="background:#ffffff;border:1px solid #9aa"></i>微泡</span><span><i class="sw" style="background:#9fd3ff"></i>大泡</span><span><i class="sw" style="background:#2f8f6b"></i>流型示踪</span>`+
+   `<span><i class="sw" style="background:${edrC<0.1?"#2f9e6b":edrC<1?"#e0a030":"#d0453a"}"></i>叶轮区能耗 ${edrC<0.1?"低":edrC<1?"中":"高"}</span><span>拖动旋转 · 滚轮缩放</span>`;
+}
+
+/* ===== SVG 图表 ===== */
+function niceTicks(min,max,n){ const span=max-min||1, s0=span/n, mag=10**Math.floor(Math.log10(s0)), e=s0/mag, st=(e>=7.5?10:e>=3.5?5:e>=1.5?2:1)*mag; const t=[]; for(let v=Math.ceil(min/st)*st; v<=max+1e-9; v+=st) t.push(+v.toFixed(10)); return t; }
+function chart(el,o){
+  const W=o.W||640,Hh=o.h||330,L=o.L||58,R=16,Tp=16,B=44;
+  const xs=v=>L+(v-o.xMin)/(o.xMax-o.xMin)*(W-L-R), ys=v=>Hh-B-(v-o.yMin)/(o.yMax-o.yMin)*(Hh-Tp-B);
+  const ink=css("--ink"),muted=css("--muted"),line=css("--line");
+  let s=`<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${o.title}" font-family="IBM Plex Mono, monospace" font-size="11">`;
+  if(o.pre) s+=o.pre(xs,ys);
+  (o.yTicks||niceTicks(o.yMin,o.yMax,5)).forEach(t=>{ s+=`<line x1="${L}" x2="${W-R}" y1="${ys(t)}" y2="${ys(t)}" stroke="${line}" opacity="${o.pre?0.4:1}"/><text x="${L-6}" y="${ys(t)+4}" text-anchor="end" fill="${muted}">${o.yFmt?o.yFmt(t):+t.toPrecision(4)}</text>`; });
+  (o.xTicks||niceTicks(o.xMin,o.xMax,6)).forEach(t=>{ s+=`<line x1="${xs(t)}" x2="${xs(t)}" y1="${Hh-B}" y2="${Hh-B+4}" stroke="${muted}"/><text x="${xs(t)}" y="${Hh-B+17}" text-anchor="middle" fill="${muted}">${o.xFmt?o.xFmt(t):+t.toPrecision(4)}</text>`; });
+  s+=`<line x1="${L}" x2="${W-R}" y1="${Hh-B}" y2="${Hh-B}" stroke="${muted}"/>`;
+  s+=`<text x="${(L+W-R)/2}" y="${Hh-6}" text-anchor="middle" fill="${muted}" font-family="Noto Sans SC, sans-serif" font-size="12">${o.xLabel}</text>`;
+  s+=`<text transform="translate(14 ${(Tp+Hh-B)/2}) rotate(-90)" text-anchor="middle" fill="${muted}" font-family="Noto Sans SC, sans-serif" font-size="12">${o.yLabel}</text>`;
+  s+=`<clipPath id="cl${el.id}"><rect x="${L}" y="${Tp}" width="${W-L-R}" height="${Hh-Tp-B}"/></clipPath><g clip-path="url(#cl${el.id})">`;
+  (o.bands||[]).forEach(b=>{ s+=`<rect x="${L}" y="${ys(b.y1)}" width="${W-L-R}" height="${Math.max(0,ys(b.y0)-ys(b.y1))}" fill="${b.color}" opacity="0.12"/>`; });
+  (o.bars||[]).forEach(b=>{ const bw=b.w; s+=`<rect x="${xs(b.x)-bw/2}" y="${ys(b.y)}" width="${bw}" height="${Math.max(0,ys(o.yMin)-ys(b.y))}" fill="${b.color}" rx="2"/>`; });
+  (o.series||[]).forEach(se=>{ const d=se.pts.filter(q=>isFinite(q[1])).map((q,i)=>(i?"L":"M")+xs(q[0]).toFixed(1)+" "+ys(Math.min(q[1],o.yMax*3)).toFixed(1)).join(" "); s+=`<path d="${d}" fill="none" stroke="${se.color}" stroke-width="${se.w||2}" ${se.dash?`stroke-dasharray="${se.dash}"`:""}/>`; });
+  (o.dots||[]).forEach(d=>{ s+=`<circle cx="${xs(d[0])}" cy="${ys(d[1])}" r="${d[3]||5}" fill="${d[2]}" stroke="${d[4]||css("--panel")}" stroke-width="2"/>`; });
+  s+=`</g>`;
+  (o.labels||[]).forEach(lb=>{ const x=Math.min(W-R-4,Math.max(L+4,xs(lb.x))), y=Math.min(Hh-B-4,Math.max(Tp+11,ys(lb.y))); s+=`<text x="${x}" y="${y}" text-anchor="${lb.anchor||"end"}" fill="${lb.color||ink}" font-family="Noto Sans SC, sans-serif" font-size="12">${lb.text}</text>`; });
+  s+=`</svg>`; el.innerHTML=s;
+}
+function renderCharts(r){
+  const p=r.p, acc=css("--accent"),muted=css("--muted"),warn=css("--warn"),ok=css("--ok"),bad=css("--bad");
+  // c1
+  const nMax=Math.max(p.rpm*2,p.rpmMax<250?p.rpmMax*1.2:60), mult=[0.5,1,2], cols=[muted,acc,ok]; let yMax=0; const ser=[],lbl=[];
+  mult.forEach((m,i)=>{ const pts=[]; for(let k=0;k<=60;k++){ const n=1+(nMax-1)*k/60, rr=compute(p,{rpm:n,vvmM:p.vvmM*m}); pts.push([n,rr.kla]); yMax=Math.max(yMax,rr.kla);} ser.push({pts,color:cols[i],w:i===1?2.5:1.5}); lbl.push({x:nMax,y:pts[60][1],text:"微泡 "+fmt(p.vvmM*m,4)+" vvm",color:cols[i]}); });
+  if(isFinite(r.klaReq)){ yMax=Math.max(yMax,r.klaReq*1.15); ser.push({pts:[[0,r.klaReq],[nMax,r.klaReq]],color:warn,w:1.5,dash:"6 4"}); lbl.push({x:2,y:r.klaReq+yMax*0.035,text:"需求 kLa "+fmt(r.klaReq,1),color:warn,anchor:"start"}); }
+  if(p.rpmMax<250) ser.push({pts:[[p.rpmMax,0],[p.rpmMax,yMax*2]],color:bad,w:1,dash:"3 3"});
+  chart($("c1"),{title:"kLa 随转速",xMin:0,xMax:nMax,yMin:0,yMax:yMax*1.08||10,xLabel:"转速 N (rpm)",yLabel:"kLa (h⁻¹)",series:ser,dots:[[p.rpm,r.kla,acc]],labels:lbl});
+  // c2
+  const vMax=Math.max(p.vcd*1.6,Math.min(r.vcdMax*1.15,p.vcd*4),20); let y2=r.OUR*1.6; const s2=[],l2=[];
+  [[0.21,muted,"空气 21%"],[p.xo2M,acc,"当前 "+fmt(p.xo2M*100,0)+"%"],[1,ok,"纯氧 100%"]].forEach(o=>{ const rr=compute(p,{xo2M:o[0]}); y2=Math.max(y2,rr.OTR*1.15); s2.push({pts:[[0,rr.OTR],[vMax,rr.OTR]],color:o[1],w:o[0]===p.xo2M?2.5:1.5}); l2.push({x:vMax,y:rr.OTR,text:o[2]+" · "+fmt(rr.OTR,1),color:o[1]}); });
+  l2.forEach(l=>l.y+=y2*0.025);
+  s2.push({pts:[[0,0],[vMax,p.qo2*vMax]],color:bad,w:2}); l2.push({x:vMax*0.45,y:p.qo2*vMax*0.45-y2*0.06,text:"OUR = qO₂·VCD",color:bad,anchor:"start"});
+  chart($("c2"),{title:"OTR 与 OUR",xMin:0,xMax:vMax,yMin:0,yMax:y2,xLabel:"活细胞密度 VCD (×10⁶/mL)",yLabel:"mmol O₂ / L / h",series:s2,dots:[[p.vcd,r.OUR,bad]],labels:l2});
+  // c5 pCO2 vs macro vvm
+  const aMax=Math.max(0.06,p.vvmA*2.5), pts5=[], pts5b=[]; let y5=200;
+  for(let k=0;k<=60;k++){ const v=0.0005+aMax*k/60; const rr=compute(p,{vvmA:v,macroOn:true}); pts5.push([v,rr.pco2]); const rb=compute(p,{vvmA:v,macroOn:true,vvmM:p.vvmM*2}); pts5b.push([v,rb.pco2]); }
+  y5=Math.max(200,Math.min(600,r.pco2*1.3||200));
+  chart($("c5"),{title:"pCO₂ 与大泡通气",xMin:0,xMax:aMax,yMin:0,yMax:y5,xLabel:"大泡通气量 (vvm)",yLabel:"pCO₂ (mmHg)",bands:[{y0:p.pco2Lo,y1:p.pco2Hi,color:ok}],
+    series:[{pts:pts5,color:acc,w:2.5},{pts:pts5b,color:muted,w:1.5,dash:"5 4"},{pts:[[0,150],[aMax,150]],color:bad,w:1.2,dash:"6 4"}],
+    dots:p.macroOn?[[p.vvmA,r.pco2,acc]]:[],labels:[{x:aMax,y:pts5[60][1]+y5*0.04,text:"当前微泡",color:acc},{x:aMax,y:pts5b[60][1]-y5*0.03,text:"微泡 ×2",color:muted},{x:aMax*0.02,y:150+y5*0.03,text:"150 mmHg",color:bad,anchor:"start"}]});
+  // c6 stage power & edr
+  const n=r.stage.length, bars=[], lb6=[]; const ymax6=Math.max(...r.stage.map(s=>s.P))*1.3||1;
+  r.stage.forEach((s,i)=>{ bars.push({x:i+1,y:s.P,w:46,color:acc}); lb6.push({x:i+1.28,y:s.P+ymax6*0.04,text:fmt(s.P,0)+" W · "+IMP[s.type].name.split("（")[0],color:css("--ink"),anchor:"start"}); });
+  lb6.push({x:n+0.9,y:ymax6*0.95,text:`ε_max ≈ ${sci(r.edrMax)} W/m³（限 ${sci(p.edrMax)}）`,color:r.edrMax<p.edrMax?ok:bad});
+  chart($("c6"),{title:"各级功率",xMin:0.3,xMax:n+0.95,yMin:0,yMax:ymax6,xTicks:r.stage.map((_,i)=>i+1),xFmt:t=>t===1?"底层":"第"+t+"层",xLabel:"叶轮级",yLabel:"未通气功率 (W)",bars,labels:lb6});
+}
+function renderSpace(r){
+  const p=r.p, okC=css("--ok"),warnC=css("--warn"),badC=css("--bad");
+  const nMax=p.rpmMax<250?p.rpmMax*1.25:Math.max(p.rpm*2.2,80), vMax=Math.max(0.03,p.vvmM*3), NX=44, NY=30;
+  let feas=0, best=null;
+  const pre=(xs,ys)=>{ let s=""; const cw=(xs(nMax)-xs(0))/NX, ch=(ys(0)-ys(vMax))/NY;
+    for(let i=0;i<NX;i++) for(let j=0;j<NY;j++){
+      const n=(i+0.5)*nMax/NX, v=(j+0.5)*vMax/NY, rr=compute(p,{rpm:n,vvmM:v,microOn:true});
+      let col,op;
+      if(rr.OTR<rr.OUR){ col=badC; op=0.28; }
+      else { const fails=evaluate(rr).filter(c=>c.st==="bad"&&!c.lbl.startsWith("Re")&&!c.lbl.startsWith("叶轮间距")&&!c.lbl.startsWith("顶叶")&&!c.lbl.startsWith("混合")); if(fails.length){ col=warnC; op=0.3; } else { col=okC; op=Math.min(0.85,0.3+0.5*Math.min(1,rr.OTR/rr.OUR-1)); feas++; if(!best||v<best.v-1e-12||(Math.abs(v-best.v)<1e-12&&rr.PgV<best.PgV)) best={n,v,PgV:rr.PgV,kla:rr.kla,pco2:rr.pco2}; } }
+      s+=`<rect x="${xs(i*nMax/NX).toFixed(1)}" y="${ys((j+1)*vMax/NY).toFixed(1)}" width="${(cw+0.4).toFixed(1)}" height="${(ch+0.4).toFixed(1)}" fill="${col}" opacity="${op.toFixed(2)}"/>`;
+    } return s; };
+  chart($("c4"),{title:"设计空间",W:1100,h:460,xMin:0,xMax:nMax,yMin:0,yMax:vMax,xLabel:"转速 N (rpm)",yLabel:"微泡通气量 (vvm)",pre,dots:[[p.rpm,p.vvmM,"#ffffff",6,"#16202b"]]});
+  $("spaceNote").innerHTML= best?`全部判据通过的格子 ${feas} 个。其中微泡通气量最低、能耗最低的一组：<b class="num">${fmt(best.n,0)} rpm · ${fmt(best.v,4)} vvm</b>，Pg/V ${fmt(best.PgV,1)} W/m³、kLa ${fmt(best.kla,1)} h⁻¹、pCO₂ ${fmt(best.pco2,0)} mmHg。`:"当前大泡通气与 O₂ 分数下没有全部通过的组合：可提高微泡 O₂ 分数、增大大泡通气或调整叶轮。";
+}
+
+/* ===== 放大 / 场地转移 ===== */
+const GEO_KEYS=["vol","ht","head","material","baffles","mount","tilt","offset","nImp","impB","npB","impU","npU","dt","cb","sp","rpm","microOn","microType","pore","microN","microHoles","vvmM","xo2M","fM","macroOn","macroType","holesA","holeD","vvmA","xo2A","fA","phi","pvMax","rpmMax","vvmMax"];
+const pick=(o,ks)=>{ const r={}; ks.forEach(k=>r[k]=o[k]); return r; };
+const SU={srcKey:"xdr2000",tgtKey:"ss3000",src:null,tgt:null};
+SU.src=pick(Object.assign({},BASE,PRESETS.xdr2000.v),GEO_KEYS); SU.tgt=pick(Object.assign({},BASE,PRESETS.ss3000.v),GEO_KEYS);
+const SU_F=[["vol","工作体积 (L)",10],["ht","H/T",0.05],["nImp","叶轮级数",1],["impB","底层叶轮"],["npB","底层 Np",0.05],["impU","上层叶轮"],["npU","上层 Np",0.05],["dt","D/T",0.01],["cb","C/T",0.01],["sp","间距 ×D",0.1],["rpm","转速 (rpm)",1,"src"],["vvmM","微泡 vvm",0.001,"src"],["vvmA","大泡 vvm",0.001,"src"],["holesA","大泡孔数",1],["holeD","大泡孔径 (mm)",0.1],["fM","微泡 kLa 倍数",0.1],["fA","大泡 kLa 倍数",0.1],["phi","φ",5]];
+function buildSu(key){
+  const box=$(key==="src"?"suSrc":"suTgt"); box.querySelectorAll(".field,.hint").forEach(e=>e.remove());
+  const pre=document.createElement("div"); pre.className="field"; pre.innerHTML=`<label for="su_${key}_preset">预设</label><select id="su_${key}_preset">${Object.keys(PRESETS).map(k=>`<option value="${k}">${PRESETS[k].name.replace(/（.*）/,"")}</option>`).join("")}</select>`;
+  box.appendChild(pre); $(`su_${key}_preset`).value=SU[key+"Key"]||"";
+  $(`su_${key}_preset`).addEventListener("change",e=>{ SU[key+"Key"]=e.target.value; SU[key]=pick(Object.assign({},BASE,PRESETS[e.target.value].v),GEO_KEYS); buildSu(key); renderScale(); });
+  SU_F.forEach(f=>{
+    if(f[3]==="src"&&key==="tgt") return;
+    const id=`su_${key}_${f[0]}`, d=document.createElement("div"); d.className="field";
+    const ctl=(f[0]==="impB"||f[0]==="impU")?`<select id="${id}">${impOpts.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join("")}</select>`:`<input id="${id}" type="number" step="${f[2]}">`;
+    d.innerHTML=`<label for="${id}">${f[1]}</label>${ctl}`; box.appendChild(d);
+    const el=$(id); el.value=SU[key][f[0]];
+    el.addEventListener(el.tagName==="SELECT"?"change":"input",()=>{
+      SU[key][f[0]]=el.tagName==="SELECT"?el.value:(parseFloat(el.value)||0);
+      if(f[0]==="impB"){ SU[key].npB=IMP[el.value].Np; SU[key].phi=IMP[el.value].phi; $(`su_${key}_npB`).value=SU[key].npB; $(`su_${key}_phi`).value=SU[key].phi; }
+      if(f[0]==="impU"){ SU[key].npU=IMP[el.value].Np; $(`su_${key}_npU`).value=SU[key].npU; }
+      renderScale();
+    });
+  });
+  const h=document.createElement("p"); h.className="hint"; h.textContent=key==="tgt"?"目标罐的转速与通气量由右侧准则计算。":"媒介、细胞与模型系数取主面板当前值。"; box.appendChild(h);
+}
+let suTarget=null;
+function renderScale(){
+  const ps=Object.assign({},S,SU.src), rs=compute(ps);
+  const pt=Object.assign({},S,SU.tgt,{xo2M:SU.src.xo2M,xo2A:SU.src.xo2A});
+  const Gt=geometry(pt), At=Math.PI*Gt.T*Gt.T/4;
+  if($("suGas").value==="vvm"){ pt.vvmM=rs.p.vvmM; pt.vvmA=rs.p.vvmA; } else { pt.vvmM=rs.vsM*At*60/Gt.V; pt.vvmA=rs.vsA*At*60/Gt.V; }
+  pt.microOn=ps.microOn; pt.macroOn=ps.macroOn;
+  const f=k=>n=>compute(pt,{rpm:n})[k];
+  const crit=[["恒 P/V",bisect(f("PgV"),rs.PgV,1,600,true)],["恒叶尖速度",rs.tip/(Math.PI*Gt.D)*60],["恒 kLa",bisect(f("kla"),rs.kla,1,600,true)],["恒混合时间",bisect(f("theta"),rs.theta,1,600,false)]];
+  const st={tip:v=>v<S.tipMax?"ok":v<S.tipMax*1.25?"warn":"bad",pv:(v,mx)=>(v>=10&&v<=mx)?"ok":"warn",edr:v=>v<S.edrMax?"ok":v<2.9e5?"warn":"bad",gev:v=>v<S.gevMax?"ok":v<2*S.gevMax?"warn":"bad",pco2:v=>v>150?"bad":v>S.pco2Hi?"warn":"ok",otr:(a,b)=>a>=1.2*b?"ok":a>=b?"warn":"bad"};
+  const cell=(v,s)=>`<td>${s&&s!=="ok"?pill(s,v):v}</td>`;
+  let h=`<tr><th>工况</th><th>N rpm</th><th>叶尖 m/s</th><th>Pg/V W/m³</th><th>ε_max W/m³</th><th>微/大 vvm</th><th>kLa h⁻¹</th><th>OTR/OUR</th><th>pCO₂ mmHg</th><th>大泡孔速 m/s</th><th>θ₉₅ s</th></tr>`;
+  const row=(name,r,cl)=>`<tr class="${cl||""}"><td>${name}</td><td>${fmt(r.p.rpm,1)}</td>${cell(fmt(r.tip,2),st.tip(r.tip))}${cell(fmt(r.PgV,1),st.pv(r.PgV,r.p.pvMax))}${cell(sci(r.edrMax),st.edr(r.edrMax))}<td>${fmt(r.p.vvmM,4)} / ${fmt(r.p.vvmA,4)}</td><td>${fmt(r.kla,1)}</td>${cell(fmt(r.OTR/r.OUR,2),st.otr(r.OTR,r.OUR))}${cell(fmt(r.pco2,0),st.pco2(r.pco2))}${cell(r.QA>0?fmt(r.gevA,1):"–",r.QA>0?st.gev(r.gevA):"")}<td>${fmt(r.theta,0)}</td></tr>`;
+  h+=row("源 · "+fmt(ps.vol,0)+" L",rs,"src");
+  const res=crit.map(c=>{ const r=compute(pt,{rpm:c[1]}); h+=row("目标 · "+c[0],r); return [c[0],r]; });
+  $("suTable").innerHTML=h;
+  const rk=res[2][1];
+  const target=Math.min(rs.pco2,S.pco2Hi);
+  const needA=bisect(v=>compute(pt,{rpm:rk.p.rpm,vvmA:v,macroOn:true}).pco2,target,0,0.3,false);
+  const needX=rk.xMreq;
+  $("suNote").textContent=`在“恒 kLa”转速 ${fmt(rk.p.rpm,1)} rpm 下：\n· 要让 pCO₂ 不高于 ${fmt(target,0)} mmHg，目标罐大泡通气约需 ${fmt(needA,4)} vvm（${fmt(needA*Gt.V*1000,0)} L/min），此时孔速 ${fmt(compute(pt,{rpm:rk.p.rpm,vvmA:needA,macroOn:true}).gevA,1)} m/s。\n· 满足峰值 OUR 所需微泡 O₂ 分数约 ${isFinite(needX)?(needX>1?">100%":fmt(Math.max(needX,0.21)*100,0)+"%"):"–"}。\n· 液柱从 ${fmt(rs.H,2)} m 变为 ${fmt(rk.H,2)} m，平均绝压 ${fmt(rs.Pm,2)} → ${fmt(rk.Pm,2)} bar：液柱越高，C* 越高，但 CO₂ 也越难去除。`;
+  suTarget={pt,rk};
+}
+
+/* ===== 实测校准与优化 ===== */
+let fitResult=null, procCal=null;
+const lin=(xs,ys)=>{ const n=xs.length, mx=xs.reduce((a,b)=>a+b,0)/n, my=ys.reduce((a,b)=>a+b,0)/n; let sxy=0,sxx=0; xs.forEach((x,i)=>{ sxy+=(x-mx)*(ys[i]-my); sxx+=(x-mx)**2; }); const b=sxx>0?sxy/sxx:0; return {b,a:my-b*mx}; };
+function solve3(A,b){ const M=A.map((r,i)=>r.concat([b[i]])); for(let i=0;i<3;i++){ let mx=i; for(let k=i+1;k<3;k++) if(Math.abs(M[k][i])>Math.abs(M[mx][i])) mx=k; [M[i],M[mx]]=[M[mx],M[i]]; if(Math.abs(M[i][i])<1e-12) return null; for(let k=0;k<3;k++){ if(k===i) continue; const f=M[k][i]/M[i][i]; for(let j=i;j<4;j++) M[k][j]-=f*M[i][j]; } } return [M[0][3]/M[0][0],M[1][3]/M[1][1],M[2][3]/M[2][2]]; }
+function parseRows(){
+  return $("fitData").value.split(/\n/).map(l=>l.trim()).filter(l=>l&&!l.startsWith("#"))
+    .map(l=>l.split(/[,，;\s\t]+/).filter(Boolean).map(Number)).filter(a=>a.length>=3&&a.every(isFinite))
+    .map(a=>a.length>=4?{rpm:a[0],vM:a[1],vA:a[2],k:a[3]}:{rpm:a[0],vM:a[1],vA:0,k:a[2]})
+    .filter(o=>o.k>0&&o.rpm>0&&(o.vM+o.vA)>0);
+}
+function measOv(pt,water){ const o={rpm:pt.rpm,vvmM:pt.vM,vvmA:pt.vA,microOn:pt.vM>0,macroOn:pt.vA>0}; if(water) Object.assign(o,{temp:20,fmed:1,rho:998,mu:1.0}); return o; }
+function baseModel(){ return S.model==="fit"?"vr_c":S.model; }
+function fitCore(X,y,m0){
+  const vr=i=>{ const m=X.reduce((u,x)=>u+x[i],0)/X.length; return X.reduce((u,x)=>u+(x[i]-m)**2,0)/X.length; };
+  let lnK=null,a,b,fixed="";
+  const fixA=vr(0)<1e-4, fixB=vr(1)<1e-4;
+  if(!fixA&&!fixB&&X.length>=4){ const A=[[0,0,0],[0,0,0],[0,0,0]],bb=[0,0,0]; X.forEach((x,i)=>{ const v=[1,x[0],x[1]]; for(let u=0;u<3;u++){ bb[u]+=v[u]*y[i]; for(let c=0;c<3;c++) A[u][c]+=v[u]*v[c]; } }); const s=solve3(A,bb); if(s){ [lnK,a,b]=s; } }
+  if(lnK==null){
+    if(!fixA){ b=m0.b; const L=lin(X.map(x=>x[0]),y.map((v,i)=>v-b*X[i][1])); a=L.b; lnK=L.a; fixed="通气量变化不足，β 沿用默认值 "+b; }
+    else if(!fixB){ a=m0.a; const L=lin(X.map(x=>x[1]),y.map((v,i)=>v-a*X[i][0])); b=L.b; lnK=L.a; fixed="转速变化不足，α 沿用默认值 "+a; }
+    else { a=m0.a; b=m0.b; lnK=y.reduce((u,v,i)=>u+v-a*X[i][0]-b*X[i][1],0)/y.length; fixed="转速和通气都没有变化，只校准了系数 K"; }
+  }
+  return {lnK,a,b,fixed};
+}
+function runFit(){
+  const pts=parseRows(), water=$("calCond").value==="water", out=$("fitOut");
+  if(pts.length<3){ out.textContent="至少需要 3 个有效实测点。"; return; }
+  const ref=Object.assign({},S,{model:baseModel()});
+  const X=[],y=[];
+  pts.forEach(pt=>{ const r=compute(ref,measOv(pt,water)); pt.PgV=r.PgV; pt.vs=r.vs; pt.def=r.kla; X.push([Math.log(r.PgV),Math.log(r.vs)]); y.push(Math.log(pt.k/3600)); });
+  const m0=S.model==="custom"?{a:S.alpha,b:S.beta}:(MODELS[baseModel()]||MODELS.vr_c);
+  const core=fitCore(X,y,m0); let {lnK,a,b,fixed}=core;
+  // 留一交叉验证：每次去掉一个点重新拟合，用来预测被去掉的点
+  let loo=null; if(pts.length>=5){ const errs=pts.map((q,i)=>{ const Xi=X.filter((_,j)=>j!==i), yi=y.filter((_,j)=>j!==i); const c=fitCore(Xi,yi,m0); const pr=Math.exp(c.lnK+c.a*X[i][0]+c.b*X[i][1])*3600; return Math.abs(pr-q.k)/q.k*100; }); loo=errs.reduce((u,v)=>u+v,0)/errs.length; }
+  const pred=X.map(x=>Math.exp(lnK+a*x[0]+b*x[1])*3600), obs=pts.map(q=>q.k);
+  const ym=y.reduce((u,v)=>u+v,0)/y.length; let ssr=0,sst=0; X.forEach((x,i)=>{ const e=y[i]-(lnK+a*x[0]+b*x[1]); ssr+=e*e; sst+=(y[i]-ym)**2; });
+  const r2=sst>0?1-ssr/sst:1, mape=pred.reduce((u,v,i)=>u+Math.abs(v-obs[i])/obs[i],0)/obs.length*100;
+  const ratio=Math.exp(pts.reduce((u,q)=>u+Math.log(q.k/q.def),0)/pts.length);
+  const rng=k=>[Math.min(...pts.map(q=>q[k])),Math.max(...pts.map(q=>q[k]))];
+  fitResult={K:Math.exp(lnK),a,b,cond:water?"water":"culture",n:pts.length,r2,mape,loo,ratio,fixed,rpmR:rng("rpm"),vR:[Math.min(...pts.map(q=>q.vM+q.vA)),Math.max(...pts.map(q=>q.vM+q.vA))],kMax:Math.max(...obs)};
+  out.textContent=`kLa [s⁻¹] = ${fitResult.K.toExponential(3)} · (Pg/V)^${a.toFixed(3)} · vs^${b.toFixed(3)}${water?"   （水 20 °C 基准，应用时乘介质校正与温度校正）":"   （培养条件下直接使用）"}\nR²（对数）= ${r2.toFixed(3)}　平均相对误差 ${mape.toFixed(1)} %　留一交叉验证误差 ${loo!=null?loo.toFixed(1)+" %":"点数不足 5，无法计算"}　n = ${pts.length}${fixed?"\n注意："+fixed:""}`;
+  // 诊断
+  const D=[], add=(lbl,val,st,src)=>D.push({lbl,val,st,src});
+  add("拟合质量（训练数据内）",`R² ${r2.toFixed(2)} · 误差 ${mape.toFixed(0)}%`,r2>=0.9&&mape<15?"ok":r2>=0.75?"warn":"bad",r2>=0.9?"数据一致性好；R² 高不代表预测可靠，以交叉验证误差为准":"偏差较大：检查各点是否同一介质、同一液量、同一探头标定；剔除明显异常点后重算");
+  add("预测能力（留一交叉验证）",loo!=null?`误差 ${loo.toFixed(0)}%`:"点数不足",loo==null?"warn":loo<15?"ok":loo<30?"warn":"bad",loo==null?"至少 5 个点才能做交叉验证；建议 ≥ 9 点（3 转速 × 3 通气）":loo<15?"未参与拟合的点预测误差小，可用于实测范围内的优化":"对未参与拟合的点预测偏差大：补测点或检查异常点");
+  if(pts.length<6||(r2>0.995&&pts.length<8)) add("过拟合风险",`n=${pts.length}，参数 3 个`,"warn","数据点少而拟合几乎完美时，模型可能只是“记住”了这几点；外部批次验证后再用于定参数");
+  const aOk=a>=0.25&&a<=1.25, bOk=b>=0.15&&b<=0.85;
+  add("指数是否在文献常见范围",`α ${a.toFixed(2)} · β ${b.toFixed(2)}`,(aOk&&bOk)?"ok":"warn",(aOk&&bOk)?"文献中细胞培养罐 α 约 0.28–1.2、β 约 0.2–0.8":(!aOk?(a<0.25?"α 偏低：加大搅拌几乎不提高 kLa，常见于气泛、气体走短路或微泡已占主导":"α 偏高：kLa 对搅拌极敏感，需确认功率计算与转速读数"):"")+(!bOk?(b<0.15?" β 偏低：加大通气几乎无效，可能气泡聚并或分布器孔被堵":" β 偏高：通气量是主杠杆，注意孔速与 CO₂ 过度去除"):""));
+  add("实测 / 默认关联式预测",`${ratio.toFixed(2)} 倍`,ratio>=0.7&&ratio<=1.5?"ok":"warn",ratio>1.5?"实测明显高于默认模型：分布器或介质的传质好于假设，可下调搅拌或通气":ratio<0.7?"实测明显偏低：常见原因是消泡剂 / Pluronic 偏多、分布器堵塞、DO 探头响应慢或流量计偏差":"与默认模型一致");
+  const tau=parseFloat($("calTau").value);
+  if(isFinite(tau)&&tau>0){ const x=tau*fitResult.kMax/3600; add("探头响应是否足够快",`τ·kLa_max = ${x.toFixed(2)}`,x<0.1?"ok":x<0.3?"warn":"bad",x<0.1?"探头响应远快于传质过程":"探头响应与传质时间可比，高 kLa 点会被低估：建议用响应校正或更快的探头复测"); }
+  const inR=S.rpm>=fitResult.rpmR[0]*0.95&&S.rpm<=fitResult.rpmR[1]*1.05, tv=(S.microOn?S.vvmM:0)+(S.macroOn?S.vvmA:0), inV=tv>=fitResult.vR[0]*0.9&&tv<=fitResult.vR[1]*1.1;
+  add("当前工况是否在实测范围内",`${fmt(S.rpm,0)} rpm · ${fmt(tv,3)} vvm`,inR&&inV?"ok":"warn",inR&&inV?"内插，可信":`实测范围 ${fitResult.rpmR[0]}–${fitResult.rpmR[1]} rpm、${fmt(fitResult.vR[0],3)}–${fmt(fitResult.vR[1],3)} vvm；超出部分为外推，建议补测`);
+  const gN=Math.pow(1.1,3*a), gV=Math.pow(1.1,b);
+  add("哪个杠杆更有效",`转速 +10% → kLa ×${gN.toFixed(2)}；通气 +10% → ×${gV.toFixed(2)}`,"ok",gN>gV?"提高转速的收益更大，但 P/V、叶尖速度和局部能耗也随之上升（P/V ∝ N³）":"提高通气的收益更大，但要同时看孔速和 pCO₂ 是否过低");
+  // 过程校准
+  procCal={};
+  const our=parseFloat($("calOUR").value), vcd=parseFloat($("calVCD").value), pm=parseFloat($("calPCO2").value), mx=parseFloat($("calMix").value);
+  const rNow=compute(S);
+  if(isFinite(our)&&isFinite(vcd)&&vcd>0){ procCal.qo2=our/vcd; add("比耗氧速率 qO₂",`${procCal.qo2.toFixed(3)} pmol/细胞/h`,"ok",`由实测 OUR ÷ VCD 得到，当前设定 ${S.qo2}`); }
+  if(isFinite(pm)&&pm>0){ procCal.fco2=S.fco2*rNow.pco2/pm; add("pCO₂ 模型校正",`模型 ${fmt(rNow.pco2,0)} / 实测 ${fmt(pm,0)} mmHg`,Math.abs(rNow.pco2/pm-1)<0.2?"ok":"warn",`CO₂ 去除效率系数调为 ${procCal.fco2.toFixed(2)}${procCal.fco2<1?"（实际去除比模型差，常见于气泡很快被 CO₂ 饱和或液面换气少）":""}`); }
+  if(isFinite(mx)&&mx>0){ procCal.fmix=S.fmix*mx/rNow.theta; add("混合时间校正",`模型 ${fmt(rNow.theta,0)} / 实测 ${fmt(mx,0)} s`,Math.abs(mx/rNow.theta-1)<0.3?"ok":"warn",`混合时间系数调为 ${procCal.fmix.toFixed(2)}`); }
+  $("calDiag").innerHTML=D.map(c=>`<li><span class="lbl">${c.lbl}</span><span><span class="num">${c.val}</span> ${pill(c.st,stDiag[c.st])}</span><span class="src">${c.src}</span></li>`).join("");
+  $("fitApply").disabled=false; $("calApplyProc").disabled=!Object.keys(procCal).length;
+  $("calTable").innerHTML=`<tr><th>转速</th><th>微/大 vvm</th><th>Pg/V</th><th>实测 kLa</th><th>拟合</th><th>偏差</th><th>默认模型</th></tr>`+pts.map((q,i)=>{ const e=(pred[i]-q.k)/q.k*100; return `<tr><td>${q.rpm}</td><td>${q.vM} / ${q.vA}</td><td>${fmt(q.PgV,1)}</td><td>${fmt(q.k,1)}</td><td>${fmt(pred[i],1)}</td><td>${Math.abs(e)>20?pill("warn",fmt(e,0)+"%"):fmt(e,0)+"%"}</td><td>${fmt(q.def,1)}</td></tr>`; }).join("");
+  const mxv=Math.max(...obs,...pred,...pts.map(q=>q.def))*1.1;
+  chart($("c3"),{title:"实测与拟合",xMin:0,xMax:mxv,yMin:0,yMax:mxv,xLabel:"实测 kLa (h⁻¹)",yLabel:"预测 kLa (h⁻¹)",series:[{pts:[[0,0],[mxv,mxv]],color:css("--muted"),w:1,dash:"4 4"}],dots:obs.map((o,i)=>[o,pred[i],css("--accent"),4.5]).concat(pts.map(q=>[q.k,q.def,css("--muted"),3.5])),labels:[{x:mxv*0.03,y:mxv*0.93,text:"● 拟合式  ● 默认模型",color:css("--muted"),anchor:"start"}]});
+}
+
+/* —— 优化 —— */
+const lsp=(a,b,n)=>n<=1?[a]:Array.from({length:n},(_,i)=>a+(b-a)*i/(n-1));
+function optimize(o){
+  const p0=Object.assign({},S,o.vcd!=null?{vcd:o.vcd}:{}, o.useFit&&FIT?{model:"fit"}:{});
+  const G=geometry(p0), rpmTip=S.tipMax/(Math.PI*G.D)*60, rpmHi=Math.max(5,Math.min(S.rpmMax,rpmTip*0.995,600));
+  const rpms=o.free.rpm?lsp(Math.max(5,rpmHi*0.15),rpmHi,30):[S.rpm];
+  const vMs=(o.free.vM&&S.microOn)?lsp(0.0005,o.vMmax,18):[S.microOn?S.vvmM:0];
+  const vAs=(o.free.vA&&S.macroOn)?lsp(0,o.vAmax,15):[S.macroOn?S.vvmA:0];
+  const enrM=S.microOn, fails={}, cands=[], m=o.margin;
+  const fail=k=>{ fails[k]=(fails[k]||0)+1; };
+  for(const rpm of rpms) for(const vM of vMs) for(const vA of vAs){
+    if(vM+vA<=0){ fail("gas"); continue; }
+    const ov={rpm,vvmM:vM,vvmA:vA,microOn:S.microOn&&vM>0,macroOn:S.macroOn&&vA>0};
+    let r=compute(p0,ov);
+    if(r.tip>=S.tipMax){ fail("tip"); continue; }
+    if(r.PgV<10){ fail("pvLow"); continue; }
+    if(r.PgV>S.pvMax){ fail("pvHigh"); continue; }
+    if(r.edrMax>S.edrMax){ fail("edr"); continue; }
+    if(r.QA>0&&r.gevA>S.gevMax){ fail("gev"); continue; }
+    if(r.gevM!=null&&r.gevM>S.gevMax){ fail("gev"); continue; }
+    if(r.vvm>S.vvmMax){ fail("vvm"); continue; }
+    if(r.pco2>S.pco2Hi){ fail("pco2Hi"); continue; }
+    if(r.pco2<S.pco2Lo){ fail("pco2Lo"); continue; }
+    if(o.mixMax&&r.theta>o.mixMax){ fail("mix"); continue; }
+    // 所需 O₂ 分数（加在微泡；没有微泡时加在大泡）
+    const useM=enrM&&r.AM>0, needF=m*r.OUR*r.V/3600;
+    let x = useM ? r.ystar+(needF-r.AA*(r.p.xo2A-r.ystar))/r.AM : (r.AA>0? r.ystar+(needF-r.AM*(r.p.xo2M-r.ystar))/r.AA : Infinity);
+    if(!o.free.x){ x=useM?S.xo2M:S.xo2A; }
+    x=Math.max(0.21,x);
+    if(x>o.xMax+1e-9){ fail("o2"); continue; }
+    r=compute(p0,Object.assign(ov,useM?{xo2M:x}:{xo2A:x}));
+    if(r.OTR<m*r.OUR*0.999){ fail("o2"); continue; }
+    const Qe=(useM?r.QM:r.QA)*60000, pureO2=Math.max(0,(x-0.2095)/0.7905)*Qe;
+    cands.push({rpm,vM,vA,x,useM,r,pureO2,gas:r.Q*60000});
+  }
+  if(!cands.length) return {fails,cands:[]};
+  const pvRef=Math.max(...cands.map(c=>c.r.PgV)), o2Ref=Math.max(1e-6,...cands.map(c=>c.pureO2)), gRef=Math.max(...cands.map(c=>c.gas));
+  cands.forEach(c=>{ const r=c.r;
+    const marg=Math.min((r.OTR/r.OUR-1)/0.5,(S.pco2Hi-r.pco2)/S.pco2Hi,(S.tipMax-r.tip)/S.tipMax,(S.edrMax-r.edrMax)/S.edrMax,r.QA>0?(S.gevMax-r.gevA)/S.gevMax:1,(S.pvMax-r.PgV)/S.pvMax);
+    c.marg=marg; const mixPen=r.theta>60?0.3:0;
+    c.score= o.prio==="energy" ? r.PgV/pvRef+0.4*c.pureO2/o2Ref+0.15*c.gas/gRef+mixPen
+           : o.prio==="oxygen" ? c.pureO2/o2Ref+0.35*c.gas/gRef+0.25*r.PgV/pvRef+mixPen
+           : -marg+mixPen; });
+  cands.sort((a,b)=>a.score-b.score);
+  return {fails,cands,rpmHi};
+}
+const FAIL_TXT={mix:"混合时间超上限",o2:"供氧不够（O₂ 分数到上限也达不到裕度）",pco2Hi:"pCO₂ 超上限",pco2Lo:"pCO₂ 低于下限（通气过多）",tip:"叶尖速度超限",pvLow:"P/V 低于 10 W/m³",pvHigh:"P/V 超上限",edr:"局部能耗超限",gev:"分布器孔速超限",vvm:"总通气超上限",gas:"没有通气"};
+const FIX_TXT={mix:"提高转速下限、增加叶轮级数或增大叶径；先用实测混合时间校准模型",o2:"提高 O₂ 分数上限、提高罐顶背压（提高 C*）、换高 kLa 的微孔分布器，或放宽转速 / 叶尖速度上限",pco2Hi:"放宽大泡通气上限、增加大泡分布器孔数或孔径、适当降低背压，或采用液面吹扫",pco2Lo:"降低大泡通气或降低 pCO₂ 下限设定",tip:"换大叶径、低 Np 的翼型叶轮，或放宽叶尖速度上限",pvLow:"降低转速受限：可降低叶径或接受更低 P/V",pvHigh:"降低转速，靠通气和 O₂ 补足供氧",edr:"换低 φ 的轴流叶轮或降低转速",gev:"增加分布器孔数或孔径（孔速与孔面积成反比）",vvm:"放宽总通气上限或提高 O₂ 分数",gas:"至少开一路通气"};
+function explain(best,cur,o){
+  const R=[], r=best.r;
+  const prioTxt={energy:"在满足全部判据的组合里，选 P/V 最低、纯氧用量也较少的一组：搅拌越温和，局部能耗和机械负荷越小。",oxygen:"在满足全部判据的组合里，选纯氧与总气量最少的一组：降低用气成本和泡沫风险。",robust:"在满足全部判据的组合里，选“离最近一条限值最远”的一组：工况波动时最不容易越线。"};
+  R.push(prioTxt[o.prio]);
+  if(o.useFit&&FIT) R.push(`使用本厂实测拟合式（α ${FIT.a.toFixed(2)}、β ${FIT.b.toFixed(2)}）：转速 +10% 使 kLa ×${Math.pow(1.1,3*FIT.a).toFixed(2)}，通气 +10% 使 kLa ×${Math.pow(1.1,FIT.b).toFixed(2)}。`);
+  const bind=[];
+  if(r.tip>0.95*S.tipMax) bind.push(`叶尖速度 ${fmt(r.tip,2)} m/s 已接近上限 ${S.tipMax}，转速不能再高`);
+  if(r.PgV<10.6) bind.push("P/V 已降到 10 W/m³ 下限，再降会影响悬浮与混合");
+  if(r.pco2>0.93*S.pco2Hi) bind.push(`pCO₂ ${fmt(r.pco2,0)} mmHg 接近上限 ${S.pco2Hi}，这决定了大泡通气不能再少`);
+  if(r.pco2<1.08*S.pco2Lo) bind.push(`pCO₂ 接近下限 ${S.pco2Lo} mmHg，通气不宜再多`);
+  if(best.x>=o.xMax-0.02) bind.push(`O₂ 分数已用到上限 ${fmt(o.xMax*100,0)}%`);
+  if(r.OTR/r.OUR<o.margin*1.05) bind.push(`供氧正好满足 ${o.margin} 倍裕度，没有多给`);
+  if(r.QA>0&&r.gevA>0.85*S.gevMax) bind.push(`大泡孔速 ${fmt(r.gevA,1)} m/s 接近上限`);
+  if(o.mixMax&&r.theta>0.9*o.mixMax) bind.push(`混合时间 ${fmt(r.theta,0)} s 接近设定上限 ${o.mixMax} s，转速不能再低`);
+  if(bind.length) R.push("起约束作用的条件："+bind.join("；")+"。");
+  const d=(a,b,u,dg)=>{ const diff=a-b; if(Math.abs(diff)<Math.max(1e-9,Math.abs(b)*0.03)) return null; return `${diff>0?"提高":"降低"}到 ${fmt(a,dg)} ${u}（当前 ${fmt(b,dg)}）`; };
+  const ch=[];
+  const c1=d(best.rpm,cur.p.rpm,"rpm",1); if(c1) ch.push("转速"+c1+(best.rpm<cur.p.rpm?"：降低 P/V 与局部能耗":"：提高 kLa，代价是 P/V 与叶尖速度上升"));
+  const c2=d(best.vM,cur.p.microOn?cur.p.vvmM:0,"vvm",4); if(c2) ch.push("微泡通气"+c2+(best.vM>(cur.p.vvmM||0)?"：微泡比表面积大，是供氧的主力":"：减少不必要的微泡与泡沫"));
+  const c3=d(best.vA,cur.p.macroOn?cur.p.vvmA:0,"vvm",4); if(c3) ch.push("大泡通气"+c3+(best.vA>(cur.p.vvmA||0)?"：大泡主要负责带走 CO₂":"：pCO₂ 已有余量，可少用气"));
+  const xc=best.useM?cur.p.xo2M:cur.p.xo2A; const c4=d(best.x*100,xc*100,"%",0); if(c4) ch.push(`${best.useM?"微泡":"大泡"} O₂ 分数`+c4+(best.x>xc?"：提高驱动力 C*，比加大搅拌更“温和”":"：供氧有余量，可节省纯氧"));
+  if(ch.length) R.push("参数变化："+ch.join("；")+"。");
+  const curFails=evaluate(cur).filter(c=>c.st==="bad"&&!/^Re|^叶轮间距|^顶叶/.test(c.lbl));
+  if(curFails.length) R.push("当前工况未通过："+curFails.map(c=>c.lbl+"（"+c.val+"）").join("、")+"；推荐方案全部通过。");
+
+  if(r.theta>60&&!o.mixMax) R.push(`提示：经验式估算混合时间 ${fmt(r.theta,0)} s 偏长，建议用实测混合时间校准，或在第 3 步填写混合时间上限后重新优化。`);
+  return R;
+}
+function runOptimize(){
+  const o={prio:$("optPrio").value,margin:+$("optMargin").value||1.2,xMax:Math.min(1,+$("optXmax").value||0.8),vMmax:+$("optVM").value||0.05,vAmax:+$("optVA").value||0.08,
+    useFit:$("optUseFit").checked&&!!fitResult,free:{rpm:$("optFreeRpm").checked,vM:$("optFreeVM").checked,vA:$("optFreeVA").checked,x:$("optFreeX").checked}};
+  const mixMax=parseFloat($("optMix").value); o.mixMax=isFinite(mixMax)&&mixMax>0?mixMax:null;
+  const vcd=parseFloat($("optVCD").value); o.vcd=isFinite(vcd)&&vcd>0?vcd:null;
+  const prevFIT=FIT; if(o.useFit) FIT=fitResult;
+  const cur=compute(Object.assign({},S,o.vcd!=null?{vcd:o.vcd}:{},o.useFit?{model:"fit"}:{}));
+  const res=optimize(o);
+  $("optEmpty").style.display="none";
+  if(!res.cands.length){
+    const top=Object.entries(res.fails).sort((a,b)=>b[1]-a[1]).slice(0,3);
+    $("optOut").innerHTML=`<p>${pill("bad","无可行解")} 在当前约束下找不到同时满足全部判据的组合。拦住最多的条件：</p><ul>${top.map(([k,n])=>`<li><b>${FAIL_TXT[k]}</b>（${n} 组）。改进方向：${FIX_TXT[k]}。</li>`).join("")}</ul>`;
+    if(!o.useFit) FIT=prevFIT; else FIT=prevFIT; return;
+  }
+  const best=res.cands[0];
+  const alts=[]; for(const c of res.cands.slice(1)){ if(alts.length>=3) break; if([best,...alts].every(a=>Math.abs(a.rpm-c.rpm)>best.rpm*0.08||Math.abs(a.vA-c.vA)>0.006||Math.abs(a.vM-c.vM)>0.004)) alts.push(c); }
+  const V=geometry(S).V*1000;
+  const row=(name,c,isCur)=>{ const r=c.r||c, p=r.p; const x=isCur?(p.microOn?p.xo2M:p.xo2A):c.x;
+    return `<tr${isCur?"":' class="src"'}><td>${name}</td><td>${fmt(p.rpm,1)}</td><td>${fmt(p.microOn?p.vvmM:0,4)}<br><small>${fmt((p.microOn?p.vvmM:0)*V,1)} L/min</small></td><td>${fmt(p.macroOn?p.vvmA:0,4)}<br><small>${fmt((p.macroOn?p.vvmA:0)*V,1)} L/min</small></td><td>${fmt(x*100,0)}%</td><td>${fmt(r.kla,1)}</td><td>${pillv(r.OTR/r.OUR,v=>v>=o.margin*0.995?"ok":v>=1?"warn":"bad",2)}</td><td>${pillv(r.pco2,v=>v>150?"bad":(v>S.pco2Hi||v<S.pco2Lo)?"warn":"ok",0)}</td><td>${pillv(r.tip,v=>v<S.tipMax?"ok":"bad",2)}</td><td>${pillv(r.PgV,v=>(v>=10&&v<=S.pvMax)?"ok":"warn",1)}</td><td>${sci(r.edrMax)}</td><td>${r.QA>0?pillv(r.gevA,v=>v<S.gevMax?"ok":"bad",1):"–"}</td><td>${fmt(r.theta,0)}</td></tr>`; };
+  const hdr=`<tr><th>方案</th><th>转速 rpm</th><th>微泡 vvm</th><th>大泡 vvm</th><th>O₂</th><th>kLa h⁻¹</th><th>OTR/OUR</th><th>pCO₂</th><th>叶尖 m/s</th><th>Pg/V</th><th>ε_max</th><th>孔速 m/s</th><th>θ₉₅ s</th></tr>`;
+  const reasons=explain(best,cur,o);
+  // 不确定性：按留一交叉验证误差下调 kLa，看推荐点是否仍满足
+  if(o.useFit&&fitResult&&fitResult.loo!=null){ const e=fitResult.loo/100, keep=FIT; FIT=Object.assign({},fitResult,{K:fitResult.K*(1-e)});
+    const pp=Object.assign({},best.r.p), rl=compute(pp); FIT=keep; const ml=rl.OTR/rl.OUR;
+    reasons.push(`不确定性：按交叉验证误差 ${fmt(e*100,0)}% 把 kLa 下调后，推荐点 OTR/OUR = ${fmt(ml,2)}，${ml>=1?"仍能满足耗氧":"会低于耗氧，建议提高裕度或补测 kLa"}${ml<o.margin&&ml>=1?"（但低于设定裕度）":""}。`); }
+  else reasons.push("不确定性：未使用实测拟合式，kLa 来自文献关联式外推，推荐点需先做 kLa 实测确认。");
+  // Pareto 前沿：P/V 越低越好、纯氧越少越好、余量越大越好
+  const par=res.cands.filter(c=>!res.cands.some(d=>d!==c&&d.r.PgV<=c.r.PgV&&d.pureO2<=c.pureO2&&d.marg>=c.marg&&(d.r.PgV<c.r.PgV||d.pureO2<c.pureO2||d.marg>c.marg)));
+  // DO 串级分段
+  const peak=o.vcd!=null?o.vcd:S.vcd, stages=[0.25,0.5,0.75,1].map(f=>{ const rs=optimize(Object.assign({},o,{vcd:peak*f})); return {f,c:rs.cands[0]}; });
+  const casc=`<tr><th>VCD 阶段</th><th>OUR mmol/L/h</th><th>转速 rpm</th><th>微泡 vvm</th><th>大泡 vvm</th><th>O₂</th><th>pCO₂</th></tr>`+stages.map(s=>s.c?`<tr><td>${fmt(peak*s.f,1)} ×10⁶/mL（${s.f*100}%）</td><td>${fmt(s.c.r.OUR,1)}</td><td>${fmt(s.c.rpm,1)}</td><td>${fmt(s.c.vM,4)}</td><td>${fmt(s.c.vA,4)}</td><td>${fmt(s.c.x*100,0)}%</td><td>${fmt(s.c.r.pco2,0)}</td></tr>`:`<tr><td>${fmt(peak*s.f,1)}</td><td colspan="6">无可行解</td></tr>`).join("");
+  $("optOut").innerHTML=`<div class="tbl"><table>${hdr}${row("当前",cur,true)}${row("★ 推荐",best,false)}${alts.map((a,i)=>row("备选 "+(i+1),a,false).replace(' class="src"',"")).join("")}</table></div>
+   <div class="row"><button class="btn primary" id="optApply">把推荐参数应用到主模型</button>${alts.map((a,i)=>`<button class="btn" data-alt="${i}">应用备选 ${i+1}</button>`).join("")}</div>
+   <h3 style="margin-top:12px">推荐理由</h3><ol class="why">${reasons.map(t=>`<li>${t}</li>`).join("")}</ol>
+   <h3 style="margin-top:12px">Pareto 前沿（权衡图）</h3>
+   <p class="hint">灰点为全部可行组合，蓝点为 Pareto 方案（在能耗、纯氧、余量三个目标上没有被其他方案全面超过），红点为推荐。点越靠左下越省能耗和纯氧；圆点越大余量越大。</p>
+   <div class="chart" id="optPareto"></div>
+   <h3 style="margin-top:12px">按细胞密度分段的 DO 串级设定建议</h3>
+   <p class="hint">按同一优化目标，分别计算峰值 VCD 的 25%、50%、75%、100% 时的最优设定，可作为 DO 串级控制各段的上限或配方参考。</p>
+   <div class="tbl"><table>${casc}</table></div>
+   <p class="hint">评估了 ${res.cands.length} 个可行组合。推荐结果依赖模型与限值，正式变更前请在缩小模型或工程批中确认。</p>`;
+  { const xs=res.cands.map(c=>c.r.PgV), ys=res.cands.map(c=>c.pureO2), xm=Math.max(...xs)*1.05, ym=Math.max(1,...ys)*1.08;
+    const dot=(c,col,base)=>[c.r.PgV,c.pureO2,col,base+Math.max(0,Math.min(4,c.marg*8))];
+    const yl=Math.max(0,Math.min(...ys)*0.9), xl=Math.max(0,Math.min(...xs)*0.9);
+    chart($("optPareto"),{title:"Pareto",W:1000,h:340,xMin:xl,xMax:xm,yMin:yl,yMax:ym,xLabel:"Pg/V (W/m³)",yLabel:"纯氧用量 (L/min)",dots:res.cands.filter(c=>!par.includes(c)).map(c=>dot(c,css("--line"),2)).concat(par.map(c=>dot(c,css("--accent"),3))).concat([dot(best,css("--bad"),4)])}); }
+  const apply=c=>{ Object.assign(S,{rpm:Math.round(c.rpm*10)/10,vvmM:+c.vM.toFixed(4),vvmA:+c.vA.toFixed(4)}); if(c.useM) S.xo2M=+c.x.toFixed(2); else S.xo2A=+c.x.toFixed(2);
+    if(o.useFit){ FIT=fitResult; S.model="fit"; } if(o.vcd!=null) S.vcd=o.vcd; writeForm(); onField("model"); update(false); scrollTo({top:0,behavior:"smooth"}); };
+  $("optApply").onclick=()=>apply(best);
+  $("optOut").querySelectorAll("button[data-alt]").forEach(b=>b.onclick=()=>apply(alts[+b.dataset.alt]));
+  if(S.model!=="fit") FIT=prevFIT;
+}
+function pillv(v,f,d){ const st=f(v); return st==="ok"?fmt(v,d):pill(st,fmt(v,d)); }
+function applyProcCal(){ if(!procCal) return; if(procCal.qo2) S.qo2=+procCal.qo2.toFixed(3); if(procCal.fco2) S.fco2=+procCal.fco2.toFixed(2); if(procCal.fmix) S.fmix=+procCal.fmix.toFixed(2); writeForm(); update(false); runFit(); }
+
+/* ===== 厂商表 ===== */
+function renderVendor(){
+  const rows=[
+    ["项目","Cytiva Xcellerex XDR-2000","Sartorius Biostat STR 2000","Thermo HyPerforma 5:1 2000 L"],
+    ["液位 H/T","1.5:1","罐体 H/D 2:1（数据表另见 1.8:1）","1.5:1（袋径 119.4 cm，液高 178.7 cm）"],
+    ["搅拌驱动","底装、磁力耦合，偏置 15°","顶装、磁力耦合，中心刚性轴","顶装，驱动偏置并斜插 19.6°"],
+    ["叶轮","1 × 4 叶斜叶，叶径 42 cm，上推流","2 × 3 叶片段式（可选底层 6 叶圆盘），D/T 0.38，间距 1.3D","1 × 3 叶 45° 斜叶，D/T 1/3，叶径 39.7 cm，Np 2.1"],
+    ["挡板","无","—","无"],
+    ["分布器","8 片 20 µm 微孔 frit；可选 CO₂ 去除三通","组合分布器：环形 200 孔 × 0.8 mm + 微孔 0.15 mm","钻孔大泡 + 多孔 frit 微泡双分布器"],
+    ["操作范围","25–115 rpm，空气 2–20 L/min，P/V 建议 ≤ 32 W/m³","微孔 ≤ 0.1 vvm，总通气 ≤ 0.2 vvm","最小液量 400 L（5:1）"],
+    ["kLa 公开数据","33 W/m³、0.01 vvm（20 µm）时 6–11 h⁻¹","微孔分布器 kLa 最高约 40 h⁻¹","—"],
+    ["来源",`<a href="https://cdn.cytivalifesciences.com/api/public/content/digi-23694-pdf">数据表</a> · <a href="https://cytiva-delivery.sitecorecontenthub.cloud/api/public/content/digi-18311-original">表征</a> · <a href="https://analyticalsciencejournals.onlinelibrary.wiley.com/doi/10.1002/bit.28529">Kreitmayer 2023</a>`,`<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3980816/">设计空间</a> · <a href="https://www.bioprocessintl.com/single-use/superior-scalability-of-single-use-bioreactors">BPI</a> · <a href="https://www.sartorius.com/download/703810/psc-manufacturing-solution-sartorius-pdf-data.pdf">数据表</a>`,`<a href="https://documents.thermofisher.com/TFS-Assets/BPD/brochures/hyperforma-5-1-single-use-bioreactor-data-sheet-2000L.pdf">数据表</a> · <a href="https://documents.thermofisher.com/TFS-Assets/BPD/Reference-Materials/hyperforma-sub-application-enhancements-white-paper.pdf">白皮书</a>`]
+  ];
+  $("vendorTable").innerHTML=rows.map((r,i)=>`<tr>${r.map(c=>i?`<td>${c}</td>`:`<th>${c}</th>`).join("")}</tr>`).join("");
+}
+
+/* ===== 三维 ===== */
+const canvas=$("scene");
+let renderer,scene,camera,controls,root,spinners=[],bubbleSets=[],tracers=null,fx=[],current=null,sceneBox={top:3,bottom:0,width:2};
+const flags={cut:true,flow:true,edr:false,bub:true,liq:true,dims:true,lbl:true,anim:!matchMedia("(prefers-reduced-motion: reduce)").matches,state:"run"};
+const STATE_INFO={
+  run:{ss:"培养：夹套通温控水，微泡分布器供氧，大泡分布器去 CO₂，排气经冷凝器与加热过滤器，背压阀维持罐压。",su:"培养：袋内一次性叶轮与分布器，支撑罐夹套控温，排气过滤器带加热套防冷凝堵塞。"},
+  cip:{ss:"CIP：喷淋球把碱液、酸液与 WFI 喷向封头和罐壁，液膜沿罐壁流下，经罐底阀回 CIP 站；喷淋覆盖率需验证。",su:""},
+  sip:{ss:"SIP：纯蒸汽 121–134 °C 灭菌罐体、过滤器、阀门与取样/补料管路，冷凝水从低点疏水阀排出；机械密封与无菌边界一同灭菌。",su:""},
+  harvest:{ss:"收获：液位下降，罐底隔膜阀打开，料液经收获管线去离心/深层过滤；液位低于叶轮后降速或停搅。",su:"收获：袋底排液管路接收获袋或深层过滤，液位低于叶轮后停搅。"}
+};
+function initThree(){
+  if(!window.THREE||!THREE.OrbitControls){ $("legend").textContent="三维库未能加载，计算功能仍可使用。"; return false; }
+  renderer=new THREE.WebGLRenderer({canvas,antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.localClippingEnabled=true;
+  scene=new THREE.Scene(); camera=new THREE.PerspectiveCamera(35,1,0.01,800);
+  controls=new THREE.OrbitControls(camera,canvas); controls.enableDamping=true; controls.dampingFactor=0.08;
+  scene.add(new THREE.HemisphereLight(0xffffff,0x6a7785,1.0));
+  const d1=new THREE.DirectionalLight(0xffffff,0.85); d1.position.set(4,8,6); scene.add(d1);
+  const d2=new THREE.DirectionalLight(0xdfe8ff,0.4); d2.position.set(-6,3,-4); scene.add(d2);
+  new ResizeObserver(resize).observe(canvas); resize(); return true;
+}
+function resize(){ if(!renderer) return; const w=canvas.clientWidth,h=canvas.clientHeight; if(!w||!h) return; renderer.setSize(w,h,false); camera.aspect=w/h; applyOffset(); }
+function applyOffset(){ if(!camera) return; const w=canvas.clientWidth,h=canvas.clientHeight; if(flags.lbl&&w>480) camera.setViewOffset(w,h,Math.round(Math.min(140,w*0.13)),0,w,h); else camera.clearViewOffset(); camera.updateProjectionMatrix(); }
+function disposeTree(o){ o.traverse(c=>{ if(c.geometry) c.geometry.dispose(); if(c.material) (Array.isArray(c.material)?c.material:[c.material]).forEach(m=>{ if(m.map) m.map.dispose(); m.dispose(); }); }); }
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+function textSprite(text,color,size,bg){
+  const c=document.createElement("canvas"),ctx=c.getContext("2d"),fs=44; ctx.font=`500 ${fs}px "Noto Sans SC","IBM Plex Mono",sans-serif`;
+  const w=Math.ceil(ctx.measureText(text).width)+28; c.width=w; c.height=fs+22; ctx.font=`500 ${fs}px "Noto Sans SC","IBM Plex Mono",sans-serif`;
+  ctx.fillStyle=bg||css("--panel"); ctx.globalAlpha=0.92; ctx.fillRect(0,0,w,c.height); ctx.globalAlpha=1; ctx.fillStyle=color; ctx.textBaseline="middle"; ctx.fillText(text,14,c.height/2+2);
+  const tex=new THREE.CanvasTexture(c); tex.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true,sizeAttenuation:false})); const h=0.0165; sp.scale.set(h*w/c.height,h,1); sp.renderOrder=20; return sp;
+}
+function lineObj(pts,color,opacity,depthTest){ const m=new THREE.LineBasicMaterial({color,transparent:true,opacity:opacity==null?1:opacity,depthTest:depthTest!==false}); const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),m); if(depthTest===false) l.renderOrder=19; return l; }
+function dimLine(a,b,color,label,size,off){
+  const grp=new THREE.Group(); grp.add(lineObj([a,b],color,1,false));
+  const dir=b.clone().sub(a).normalize(), perp=Math.abs(dir.y)>0.9?V3(1,0,0):V3(0,1,0);
+  [a,b].forEach(q=>grp.add(lineObj([q.clone().addScaledVector(perp,-size*0.35),q.clone().addScaledVector(perp,size*0.35)],color,1,false)));
+  const sp=textSprite(label,"#"+color.getHexString(),size); sp.position.copy(a).add(b).multiplyScalar(0.5).add(off); grp.add(sp); return grp;
+}
+function circlePts(r,y,n,cx){ return Array.from({length:n+1},(_,i)=>V3((cx||0)+Math.cos(i/n*Math.PI*2)*r,y,Math.sin(i/n*Math.PI*2)*r)); }
+function pipeMesh(pts,rad,mat){ const path=new THREE.CurvePath(); for(let i=0;i<pts.length-1;i++) path.add(new THREE.LineCurve3(pts[i],pts[i+1])); return new THREE.Mesh(new THREE.TubeGeometry(path,Math.max(8,(pts.length-1)*8),rad,10,false),mat); }
+function makeImpeller(type,D,metal){
+  const g=new THREE.Group(), I=IMP[type];
+  g.add(new THREE.Mesh(new THREE.CylinderGeometry(D*0.07,D*0.07,D*0.22,24),metal));
+  if(type==="rushton"){
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(D*0.375,D*0.375,D*0.012,48),metal));
+    for(let i=0;i<6;i++){ const bl=new THREE.Mesh(new THREE.BoxGeometry(D*0.25,D*0.2,D*0.012),metal), a=i*Math.PI/3; bl.position.set(Math.cos(a)*D*0.375,0,Math.sin(a)*D*0.375); bl.rotation.y=-a; g.add(bl); }
+    return g;
+  }
+  const len=D*0.43, pitch=I.pitch*Math.PI/180;
+  for(let i=0;i<I.blades;i++){
+    const arm=new THREE.Group(); arm.rotation.y=-i*2*Math.PI/I.blades;
+    if(type==="hydro"||type==="seg3"||type==="a315"){ const segs=3; for(let k=0;k<segs;k++){ const L=len/segs, bl=new THREE.Mesh(new THREE.BoxGeometry(L*1.02,D*I.wid*(type==="seg3"?(1.15-0.15*k):type==="a315"?(1.05-0.12*k):(1.1-0.25*k)),D*0.012),metal); bl.position.x=D*0.07+L*(k+0.5); bl.rotation.x=pitch*(1.35-0.3*k); arm.add(bl); } }
+    else if(type==="marine"||type==="ee"){ const bl=new THREE.Mesh(new THREE.CircleGeometry(len*(type==="ee"?0.56:0.5),28),new THREE.MeshStandardMaterial({color:metal.color,metalness:metal.metalness,roughness:metal.roughness,side:THREE.DoubleSide})); bl.scale.set(1,type==="ee"?0.95:0.7,1); bl.position.x=D*0.07+len*0.5; bl.rotation.x=Math.PI/2-pitch; arm.add(bl); }
+    else { const bl=new THREE.Mesh(new THREE.BoxGeometry(len,D*I.wid,D*0.012),metal); bl.position.x=D*0.07+len/2; bl.rotation.x=I.flow==="up"?-pitch:pitch; arm.add(bl); }
+    g.add(arm);
+  }
+  return g;
+}
+function flowLoops(r,ax,Hl){
+  const p=r.p, R=r.T/2, D=r.D, ys=r.G.ys, loops=[];
+  ys.forEach((y,i)=>{
+    if(y>Hl) return;
+    const fl=IMP[i?p.impU:p.impB].flow, lo=i===0?r.G.hd*0.35:(ys[i-1]+y)/2, hi=i===ys.length-1?Hl*0.94:(y+ys[i+1])/2;
+    if(fl==="radial"){
+      loops.push([[0.55*D,y],[0.85*R,y+0.05*(hi-y)],[0.86*R,y+0.75*(hi-y)],[0.32*D,y+0.7*(hi-y)],[0.3*D,y+0.12*(hi-y)]]);
+      loops.push([[0.55*D,y],[0.85*R,y-0.05*(y-lo)],[0.86*R,y-0.75*(y-lo)],[0.32*D,y-0.7*(y-lo)],[0.3*D,y-0.12*(y-lo)]]);
+    } else {
+      let ring=[[0.3*D,y],[0.32*D,lo+0.18*(y-lo)],[0.8*R,lo+0.2*(y-lo)],[0.86*R,y],[0.84*R,hi-0.18*(hi-y)],[0.35*D,hi-0.15*(hi-y)]];
+      if(fl==="up") ring=ring.map(q=>[q[0],Math.min(Math.max(2*y-q[1],lo),hi)]).reverse();
+      loops.push(ring);
+    }
+  });
+  const curves=[];
+  loops.forEach(lp=>{ for(let k=0;k<4;k++){ const a=k*Math.PI/2+Math.PI/4, c=Math.cos(a), s=Math.sin(a); curves.push(new THREE.CatmullRomCurve3(lp.map(q=>V3(ax+q[0]*c,q[1],q[0]*s)),true,"centripetal")); } });
+  return curves;
+}
+/* 顶封头/罐体极坐标定位：θ 取 10°–170°，让部件落在剖切后保留的后半部 */
+const polar=(r,deg)=>[r*Math.cos(deg*Math.PI/180),-r*Math.sin(deg*Math.PI/180)];
+
+function buildScene(r){
+  if(!scene) return;
+  if(root){ scene.remove(root); disposeTree(root); }
+  root=new THREE.Group(); scene.add(root); spinners=[]; bubbleSets=[]; tracers=null; fx=[];
+  const p=r.p, T=r.T, R=T/2, H=r.H, D=r.D, hd=r.G.hd, hs=(HEADS[p.head]||HEADS.ell).s, su=p.material==="su";
+  const state=su&&(flags.state==="cip"||flags.state==="sip")?"run":flags.state;
+  const Hl= state==="run"?H : state==="harvest"?Math.max(hd+T*0.05,H*0.3) : state==="cip"?hd*0.35+T*0.01 : 0;
+  const clip=flags.cut?[new THREE.Plane(V3(0,0,-1),0)]:[];
+  const steel=new THREE.MeshStandardMaterial({color:0xd3dae1,metalness:0.55,roughness:0.28});
+  const steelC=new THREE.MeshStandardMaterial({color:0xd3dae1,metalness:0.55,roughness:0.28,clippingPlanes:clip,side:THREE.DoubleSide});
+  const dark=new THREE.MeshStandardMaterial({color:0x3a4652,metalness:0.6,roughness:0.5});
+  const blueGrey=new THREE.MeshStandardMaterial({color:0x5b7083,metalness:0.4,roughness:0.5});
+  const shellM=new THREE.MeshPhysicalMaterial({color:su?0xeef2f5:0xd5dce3,metalness:su?0:0.45,roughness:su?0.55:0.25,transparent:true,opacity:su?0.3:(flags.cut?0.6:0.18),side:THREE.DoubleSide,depthWrite:!su&&flags.cut,clippingPlanes:clip});
+  const Hv=H*(su?1.22:1.28), topS=su?0.12:(p.head==="flat"?0.25:hs), headTop=Hv+R*topS;
+  const add=o=>{ root.add(o); return o; };
+  const mesh=(geo,mat,x,y,z)=>{ const m=new THREE.Mesh(geo,mat); m.position.set(x||0,y||0,z||0); return add(m); };
+  const labels=[], edgeC=new THREE.Color(css("--muted"));
+  const yHead=x=>Hv+R*topS*Math.sqrt(Math.max(0,1-(x/R)**2));
+  const big=p.vol>=5000;
+  const floorY=su?-T*0.16:-Math.max(0.7,T*0.32);
+  let platY=null;
+
+  // ---------- 罐体 ----------
+  mesh(new THREE.CylinderGeometry(R,R,Hv-hd,80,1,true),shellM,0,hd+(Hv-hd)/2);
+  if(hd>0){ mesh(new THREE.SphereGeometry(R,80,24,0,Math.PI*2,Math.PI/2,Math.PI/2),shellM,0,hd).scale.y=hs; } else { mesh(new THREE.CircleGeometry(R,80),shellM).rotation.x=-Math.PI/2; }
+  mesh(new THREE.SphereGeometry(R,80,24,0,Math.PI*2,0,Math.PI/2),shellM,0,Hv).scale.y=topS;
+  [hd,Hv].forEach(y=>add(lineObj(circlePts(R,y,96),edgeC,0.5)));
+
+  // ---------- 液体 ----------
+  if(flags.liq&&Hl>0){
+    const lm=new THREE.MeshPhysicalMaterial({color:state==="cip"?0x9cc9e8:0xe7a46a,transparent:true,opacity:0.24,roughness:0.15,side:THREE.DoubleSide,depthWrite:false,clippingPlanes:clip});
+    if(Hl>hd) mesh(new THREE.CylinderGeometry(R*0.995,R*0.995,Hl-hd,80,1,false),lm,0,hd+(Hl-hd)/2);
+    if(hd>0){ const cap=Math.min(Hl,hd)/hd; const b=mesh(new THREE.SphereGeometry(R*0.995,80,20,0,Math.PI*2,Math.PI-Math.acos(Math.max(-1,Math.min(1,(hd-Math.min(Hl,hd))/hd))),Math.acos(Math.max(-1,Math.min(1,(hd-Math.min(Hl,hd))/hd)))),lm,0,hd); b.scale.y=hs; if(cap<=0) b.visible=false; }
+    const rl=Hl>=hd?R:R*Math.sqrt(Math.max(0,1-((hd-Hl)/hd)**2));
+    add(lineObj(circlePts(rl,Hl,96),new THREE.Color(state==="cip"?0x5b9cc8:0xd0803e),1));
+  }
+
+  // ---------- 挡板 ----------
+  if(p.baffles){ for(let i=0;i<4;i++){ const a=i*Math.PI/2+Math.PI/4, bw=T/12, h=H*0.98-hd*0.5; const bf=mesh(new THREE.BoxGeometry(bw,h,T*0.008),steel,Math.cos(a)*(R-bw/2-T/72),hd*0.5+h/2,Math.sin(a)*(R-bw/2-T/72)); bf.rotation.y=-a; } labels.push([V3(Math.cos(Math.PI*0.25)*R*0.8,H*0.8,-Math.sin(Math.PI*0.25)*R*0.8),"挡板 ×4"]); }
+
+  // ---------- 搅拌 ----------
+  const angled=p.mount!=="top", tilt=angled?p.tilt*Math.PI/180:0, off=angled?p.offset*R:0, ys=r.G.ys;
+  const dirX=Math.sin(tilt), dirY=Math.cos(tilt);
+  const xAt=p.mount==="top_angled"?(y=>off-(headTop-y)*Math.tan(tilt)):(y=>off+(y-ys[0])*Math.tan(tilt));
+  const agit=new THREE.Group(); add(agit);
+  let driveTop=headTop;
+  if(p.mount==="bottom"){
+    const y0=ys[0], L=y0+T*0.04;
+    const sh=new THREE.Mesh(new THREE.CylinderGeometry(D*0.06,D*0.06,L,16),steel); sh.position.set(off-dirX*L/2,y0-dirY*L/2,0); sh.rotation.z=-tilt; agit.add(sh);
+    const dh=new THREE.Mesh(new THREE.CylinderGeometry(T*0.09,T*0.09,T*0.12,32),dark); dh.position.set(off-dirX*(L+T*0.03),y0-dirY*(L+T*0.03)-T*0.04,0); dh.rotation.z=-tilt; agit.add(dh);
+    const mo=new THREE.Mesh(new THREE.CylinderGeometry(T*0.07,T*0.07,T*0.2,24),blueGrey); mo.position.set(dh.position.x,dh.position.y-T*0.16,0); agit.add(mo);
+    labels.push([V3(off+T*0.28,-T*0.14,-T*0.05),su?"底装磁力驱动头":"底装磁力搅拌（无轴封）"]);
+  } else {
+    const yTop=headTop+T*0.04, xTop=xAt(yTop), yBot=ys[0]-D*0.1, xBot=xAt(yBot), len=Math.hypot(xTop-xBot,yTop-yBot);
+    const sh=new THREE.Mesh(new THREE.CylinderGeometry(D*0.03+T*0.006,D*0.03+T*0.006,len,16),steel); sh.position.set((xTop+xBot)/2,(yTop+yBot)/2,0); sh.rotation.z=-tilt; agit.add(sh);
+    const stack=new THREE.Group(); stack.position.set(xTop,yTop,0); stack.rotation.z=-tilt; agit.add(stack);
+    const put=(geo,mat,y)=>{ const m=new THREE.Mesh(geo,mat); m.position.y=y; stack.add(m); return m; };
+    if(!su){
+      put(new THREE.CylinderGeometry(T*0.075,T*0.075,T*0.02,32),steel,0);                 // 法兰
+      put(new THREE.CylinderGeometry(T*0.05,T*0.05,T*0.09,32),new THREE.MeshStandardMaterial({color:0x8f6a3a,metalness:0.6,roughness:0.4}),T*0.055); // 双端面机封
+      put(new THREE.CylinderGeometry(T*0.065,T*0.065,T*0.14,10,1,true),new THREE.MeshStandardMaterial({color:0x7d8b99,metalness:0.5,roughness:0.5,wireframe:true}),T*0.17); // 灯笼架
+      put(new THREE.BoxGeometry(T*0.18,T*0.11,T*0.16),blueGrey,T*0.3);                   // 减速机
+      put(new THREE.CylinderGeometry(T*0.08,T*0.08,T*0.24,32),blueGrey,T*0.48);           // 电机
+      put(new THREE.CylinderGeometry(T*0.085,T*0.085,T*0.02,32),dark,T*0.61);
+      // 机封冷凝水管
+      [-1,1].forEach(sg=>stack.add(pipeMesh([V3(sg*T*0.05,T*0.07,0),V3(sg*T*0.12,T*0.07,0),V3(sg*T*0.12,T*0.0,-T*0.06)],T*0.006,new THREE.MeshStandardMaterial({color:0x3b82c4,metalness:0.5,roughness:0.4}))));
+      driveTop=yTop+T*0.62;
+      labels.push([V3(xTop+T*0.32,yTop+T*0.06,0),"双端面机械密封（冷凝水润滑）"]);
+      labels.push([V3(xTop+T*0.28,yTop+T*0.42,0),"电机 + 减速机"]);
+    } else {
+      put(new THREE.CylinderGeometry(T*0.09,T*0.09,T*0.24,32),dark,T*0.14); put(new THREE.BoxGeometry(T*0.17,T*0.08,T*0.17),dark,0);
+      const arm=new THREE.Mesh(new THREE.BoxGeometry(Math.abs(xTop)+R*1.2,T*0.04,T*0.06),dark); arm.position.set((xTop-R*1.2)/2,yTop+T*0.02,0); agit.add(arm);
+      driveTop=yTop+T*0.3; labels.push([V3(xTop+T*0.25,yTop+T*0.2,0),"顶装磁力驱动"]);
+    }
+  }
+  const spinOn = state==="run"||(state==="harvest"&&Hl>ys[0]+D*0.3)||state==="cip";
+  ys.forEach((y,i)=>{ const pivot=new THREE.Group(); pivot.position.set(xAt(y),y,0); pivot.rotation.z=-tilt; const imp=makeImpeller(i?p.impU:p.impB,D,steel); pivot.add(imp); agit.add(pivot);
+    spinners.push({obj:imp,dir:IMP[i?p.impU:p.impB].flow==="up"?1:-1,k:state==="run"?1:state==="cip"?0.25:(spinOn?0.5:0)});
+    if(flags.edr&&state==="run"){ const ratio=r.edrMax/p.edrMax*(i?0.6:1); const col=ratio<0.1?0x2f9e6b:ratio<1?0xe0a030:0xd0453a; pivot.add(new THREE.Mesh(new THREE.CylinderGeometry(D*0.58,D*0.58,D*0.36,40,1,true),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.28,side:THREE.DoubleSide,depthWrite:false}))); }
+  });
+  labels.push([V3(xAt(ys[0])+D*0.75,ys[0]+D*0.12,0),IMP[p.impB].name]);
+
+  // ---------- 分布器 ----------
+  const yS=p.mount==="bottom"?ys[0]-D*0.12:Math.max(hd*0.55,ys[0]-Math.min(0.5*D,ys[0]*0.55));
+  const sx=p.mount==="bottom"?xAt(yS):xAt(ys[0]);
+  const spawnM=[], spawnA=[];
+  const fritM=new THREE.MeshStandardMaterial({color:0xd5dbe1,metalness:0.2,roughness:0.95});
+  const gasPipe=new THREE.MeshStandardMaterial({color:0x3b82c4,metalness:0.6,roughness:0.35});
+  let sparFeed=[];
+  if(p.microOn){
+    if(p.microType==="frit"){ const n=Math.max(1,Math.round(p.microN)), rr=n>1?D*0.3:0, rd=T*(n>1?0.03:0.05);
+      for(let i=0;i<n;i++){ const a=i*Math.PI*2/n, x=sx+Math.cos(a)*rr+(n>1?0:D*0.45), z=Math.sin(a)*rr; mesh(new THREE.CylinderGeometry(rd,rd,T*0.012,24),fritM,x,yS-T*0.01,z); spawnM.push(()=>{ const t=Math.random()*Math.PI*2, q=Math.sqrt(Math.random())*rd; return [x+Math.cos(t)*q,yS,z+Math.sin(t)*q]; }); }
+      sparFeed.push(V3(sx+(n>1?0:D*0.45),yS-T*0.02,0));
+      labels.push([V3(sx+D*0.55,yS-T*0.07,-D*0.3),`微孔 frit × ${Math.round(p.microN)}（${p.pore} µm）`]);
+    } else { const rr=D*0.28; mesh(new THREE.TorusGeometry(rr,T*0.006,8,64),fritM,sx,yS,0).rotation.x=Math.PI/2; spawnM.push(()=>{ const a=Math.random()*Math.PI*2; return [sx+Math.cos(a)*rr,yS,Math.sin(a)*rr]; }); sparFeed.push(V3(sx+rr,yS,0)); labels.push([V3(sx+rr,yS-T*0.07,-D*0.2),"微孔钻孔环"]); }
+  }
+  if(p.macroOn){
+    if(p.macroType==="ring"){ const rr=D*0.42; mesh(new THREE.TorusGeometry(rr,T*0.009,10,72),steel,sx,yS+T*0.005,0).rotation.x=Math.PI/2;
+      const nh=Math.min(48,Math.round(p.holesA)); for(let i=0;i<nh;i++){ const a=i*Math.PI*2/nh; mesh(new THREE.SphereGeometry(T*0.003,6,4),dark,sx+Math.cos(a)*rr,yS+T*0.014,Math.sin(a)*rr); }
+      spawnA.push(()=>{ const a=Math.random()*Math.PI*2; return [sx+Math.cos(a)*rr,yS+T*0.015,Math.sin(a)*rr]; }); sparFeed.push(V3(sx-rr,yS,0));
+      labels.push([V3(sx-rr-T*0.05,yS+T*0.04,-T*0.05),`环形分布器 ${p.holesA}×Ø${p.holeD} mm`]);
+    } else if(p.macroType==="drilled"){ const rd=T*0.08; mesh(new THREE.CylinderGeometry(rd,rd,T*0.01,32),steel,sx-D*0.45,yS,0); spawnA.push(()=>{ const t=Math.random()*Math.PI*2,q=Math.sqrt(Math.random())*rd; return [sx-D*0.45+Math.cos(t)*q,yS+T*0.01,Math.sin(t)*q]; }); sparFeed.push(V3(sx-D*0.45,yS,0)); labels.push([V3(sx-D*0.45-rd,yS-T*0.06,-T*0.05),`钻孔分布器 ${p.holesA}×Ø${p.holeD} mm`]); }
+    else { const px=sx-D*0.35; mesh(new THREE.CylinderGeometry(T*0.012,T*0.012,T*0.12,10),steel,px,yS+T*0.06,0); spawnA.push(()=>[px+(Math.random()-0.5)*T*0.02,yS+T*0.12,(Math.random()-0.5)*T*0.02]); sparFeed.push(V3(px,yS,0)); labels.push([V3(px-T*0.12,yS+T*0.14,-T*0.05),"开口管 / 三通"]); }
+  }
+  // 分布器进气管：不锈钢罐从底封头引出，一次性袋从袋顶引入
+  sparFeed.forEach((q,i)=>{
+    if(su||p.mount==="bottom"){ add(pipeMesh([q,V3(q.x,q.y,-R*0.25-i*T*0.03),V3(q.x,headTop+T*0.05,-R*0.25-i*T*0.03)],T*0.006,gasPipe)); }
+    else { const bx=q.x*0.6, bz=-R*0.3-i*T*0.04; add(pipeMesh([q,V3(bx,q.y-T*0.02,bz*0.5),V3(bx,-T*0.15,bz),V3(R*1.25,-T*0.15,bz),V3(R*1.25,floorY+T*0.25,bz)],T*0.008,gasPipe)); }
+  });
+
+  // ---------- 气泡、流型 ----------
+  if(flags.bub&&state==="run"){
+    const mk=(spawns,count,rad,color,rise)=>{ if(!spawns.length||count<=0) return; const m=new THREE.InstancedMesh(new THREE.SphereGeometry(1,8,6),new THREE.MeshStandardMaterial({color,transparent:true,opacity:0.75,roughness:0.1}),count); const data=[];
+      for(let i=0;i<count;i++){ const sp=spawns[i%spawns.length], s=sp(); data.push({x:s[0],y:s[1]+Math.random()*(Hl-s[1]),z:s[2],sz:rad*(0.6+Math.random()*0.8),sp}); } add(m); bubbleSets.push({m,data,rise}); };
+    if(p.microOn&&r.QM>0) mk(spawnM,Math.round(Math.min(800,60+p.vvmM*9000)),T*0.0032,0xffffff,0.13);
+    if(p.macroOn&&r.QA>0) mk(spawnA,Math.round(Math.min(380,30+p.vvmA*4000)),T*0.011,0x9fd3ff,0.32);
+  }
+  if(flags.flow&&(state==="run")){
+    const curves=flowLoops(r,xAt(ys[0])*0.5,Hl), lc=new THREE.Color(0x2f8f6b);
+    curves.forEach(c=>add(lineObj(c.getPoints(60),lc,0.35)));
+    const per=4, n=curves.length*per;
+    if(n>0){ const cone=new THREE.InstancedMesh(new THREE.ConeGeometry(T*0.012,T*0.035,8),new THREE.MeshStandardMaterial({color:0x2f8f6b}),n); add(cone); tracers={mesh:cone,curves,u:Array.from({length:n},(_,i)=>(i%per)/per)}; }
+  }
+
+  // ---------- 不锈钢工艺细节 ----------
+  const pipeCol={cip:0x3fa36b,steam:0xc8463c,gas:0x3b82c4,proc:0xb9c2cc,water:0x2f7fbf};
+  const pm=(key,active)=>new THREE.MeshStandardMaterial({color:pipeCol[key],metalness:0.6,roughness:0.35,emissive:active?pipeCol[key]:0x000000,emissiveIntensity:active?0.55:0});
+  if(!su){
+    const ts=T*0.008, tj=T*0.022, ti=T*0.045, tc=T*0.004;
+    const jy0=hd*0.35, jy1=Math.min(H*0.92,Hv-T*0.05), Rc=R+ts+tj+ti+tc;
+    const jacketCol= state==="sip"?0xd0453a : state==="cip"?0x8d99a6 : 0x2f7fbf;
+    const coilM=new THREE.MeshStandardMaterial({color:jacketCol,metalness:0.55,roughness:0.35,emissive:state==="sip"?0x6a1a14:0x000000,clippingPlanes:clip});
+    // 半管夹套：底封头区 + 下段 + 上段
+    const zones=[[jy0+ (hd>0?hd*0.6:0),H*0.5],[H*0.5,jy1]];
+    zones.forEach(([y0,y1],zi)=>{ const pts=[], turns=Math.max(4,Math.round((y1-y0)/(tj*2.2))); for(let i=0;i<=turns*40;i++){ const t=i/(turns*40), a=t*turns*Math.PI*2+zi; pts.push(V3(Math.cos(a)*(R+ts+tj/2),y0+(y1-y0)*t,Math.sin(a)*(R+ts+tj/2))); }
+      add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),turns*48,tj*0.48,6,false),coilM));
+      [[y0,170],[y1,150]].forEach(([y,deg])=>{ const [x,z]=polar(Rc,deg); add(pipeMesh([V3(x*(R+ts+tj)/Rc,y,z*(R+ts+tj)/Rc),V3(x*1.08,y,z*1.08)],T*0.01,pm("water",state==="run"))); });
+    });
+    if(hd>0){ const bj=mesh(new THREE.SphereGeometry(R+ts+tj*0.6,48,16,0,Math.PI*2,Math.PI/2+0.35,Math.PI/2-0.35),new THREE.MeshStandardMaterial({color:jacketCol,metalness:0.5,roughness:0.4,transparent:true,opacity:0.55,side:THREE.DoubleSide,clippingPlanes:clip}),0,hd); bj.scale.y=hs*(R+ts+tj*0.6)/R; }
+    labels.push([V3(...[polar(Rc*1.12,165)[0]].concat([H*0.36],[polar(Rc*1.12,165)[1]])),"半管夹套（分区）"]);
+    // 保温 + 外包皮
+    const cladM=new THREE.MeshStandardMaterial({color:0xdfe4e9,metalness:0.7,roughness:0.45,transparent:true,opacity:flags.cut?0.35:0.22,side:THREE.DoubleSide,depthWrite:false,clippingPlanes:clip});
+    mesh(new THREE.CylinderGeometry(Rc,Rc,jy1-jy0+T*0.02,64,1,true),cladM,0,(jy0+jy1)/2);
+    // 剖面层次（夸大厚度便于识别）
+    if(flags.cut){
+      const lay=[[R,ts,0xc3ccd5,"316L 内筒（电解抛光）"],[R+ts,tj,jacketCol,"夹套介质"],[R+ts+tj,ti,0xe8c96a,"保温层"],[R+ts+tj+ti,tc,0xf2f4f6,"304 外包皮"]];
+      [-1,1].forEach(sg=>lay.forEach(([r0,t,col],k)=>{ const yA=k===0?hd:jy0, yB=k===0?Hv:jy1; mesh(new THREE.BoxGeometry(t,yB-yA,T*0.004),new THREE.MeshStandardMaterial({color:col,metalness:k===0?0.9:0.2,roughness:0.4}),sg*(r0+t/2),(yA+yB)/2,0.0005); }));
+      labels.push([V3(-(Rc+T*0.2),H*0.62,0),"剖面：内筒 | 夹套 | 保温 | 外包皮"]);
+    }
+    // 顶封头接口
+    const nozzle=(deg,rr,h,rad,mat)=>{ const [x,z]=polar(rr,deg), y=yHead(Math.hypot(x,z)); const m=mesh(new THREE.CylinderGeometry(rad,rad,h,24),mat||steel,x,y+h/2-T*0.01,z); return {x,z,y,top:y+h}; };
+    const mh=nozzle(160,R*0.5,T*0.08,T*0.1); mesh(new THREE.CylinderGeometry(T*0.12,T*0.12,T*0.018,32),steel,mh.x,mh.top,mh.z); labels.push([V3(mh.x-T*0.05,mh.top+T*0.08,mh.z),"人孔"]);
+    const sg1=nozzle(100,R*0.5,T*0.05,T*0.04); mesh(new THREE.CylinderGeometry(T*0.034,T*0.034,T*0.006,24),new THREE.MeshPhysicalMaterial({color:0x9fd3ff,transparent:true,opacity:0.7,roughness:0}),sg1.x,sg1.top,sg1.z);
+    const lt=nozzle(122,R*0.62,T*0.05,T*0.03); mesh(new THREE.SphereGeometry(T*0.025,16,12),new THREE.MeshStandardMaterial({color:0xfff2b0,emissive:0xffe680,emissiveIntensity:0.8}),lt.x,lt.top,lt.z);
+    labels.push([V3(sg1.x,sg1.top+T*0.08,sg1.z),"视镜 + 视镜灯"]);
+    // 喷淋球与 CIP 管
+    const cipActive=state==="cip", sprays=[];
+    [40,135].forEach((deg,i)=>{ const [x,z]=polar(R*0.55,deg), y=yHead(R*0.55); const ballY=y-T*0.08;
+      mesh(new THREE.SphereGeometry(T*0.028,20,16),steel,x,ballY,z); add(pipeMesh([V3(x,ballY,z),V3(x,y+T*0.2,z)],T*0.01,pm("cip",cipActive))); sprays.push(V3(x,ballY,z));
+      add(pipeMesh([V3(x,y+T*0.2,z),V3(R*1.35,y+T*0.2,z),V3(R*1.35,floorY+T*0.3,z)],T*0.012,pm("cip",cipActive)));
+    });
+    labels.push([V3(sprays[0].x+T*0.08,sprays[0].y-T*0.08,sprays[0].z),"CIP 喷淋球 ×2"]);
+    // 排气：冷凝器 → 加热过滤器 → 背压阀
+    const ex=nozzle(20,R*0.62,T*0.12,T*0.02);
+    mesh(new THREE.CylinderGeometry(T*0.05,T*0.05,T*0.26,24),steel,ex.x,ex.top+T*0.13,ex.z);
+    for(let k=0;k<5;k++) mesh(new THREE.TorusGeometry(T*0.052,T*0.004,6,24),blueGrey,ex.x,ex.top+T*0.03+k*T*0.05,ex.z).rotation.x=Math.PI/2;
+    add(pipeMesh([V3(ex.x,ex.top+T*0.26,ex.z),V3(ex.x,ex.top+T*0.34,ex.z),V3(ex.x+T*0.2,ex.top+T*0.34,ex.z)],T*0.012,steel));
+    mesh(new THREE.CylinderGeometry(T*0.045,T*0.045,T*0.2,24),new THREE.MeshStandardMaterial({color:0xd9822b,roughness:0.7}),ex.x+T*0.2,ex.top+T*0.24,ex.z);
+    const bpv=mesh(new THREE.SphereGeometry(T*0.03,14,10),dark,ex.x+T*0.36,ex.top+T*0.34,ex.z); add(pipeMesh([V3(ex.x+T*0.2,ex.top+T*0.34,ex.z),V3(ex.x+T*0.45,ex.top+T*0.34,ex.z)],T*0.01,steel));
+    mesh(new THREE.CylinderGeometry(T*0.012,T*0.012,T*0.06,10),dark,bpv.position.x,bpv.position.y+T*0.04,bpv.position.z);
+    labels.push([V3(ex.x+T*0.25,ex.top+T*0.5,ex.z),"排气冷凝器 → 加热过滤器 → 背压阀"]);
+    // 进气过滤器、爆破片、压力变送器、补料浸管、泡沫探头、雷达液位
+    const gf=nozzle(65,R*0.45,T*0.06,T*0.015); [0,1].forEach(k=>mesh(new THREE.CylinderGeometry(T*0.035,T*0.035,T*0.16,20),steel,gf.x+k*T*0.09,gf.top+T*0.08,gf.z-T*0.02));
+    labels.push([V3(gf.x+T*0.05,gf.top+T*0.22,gf.z),"进气无菌过滤器"]);
+    const rd=nozzle(150,R*0.82,T*0.05,T*0.022); mesh(new THREE.CylinderGeometry(T*0.03,T*0.03,T*0.015,20),new THREE.MeshStandardMaterial({color:0xc8463c}),rd.x,rd.top,rd.z);
+    const pt=nozzle(132,R*0.82,T*0.07,T*0.012); mesh(new THREE.BoxGeometry(T*0.04,T*0.05,T*0.04),dark,pt.x,pt.top+T*0.02,pt.z);
+    labels.push([V3(rd.x-T*0.1,rd.top+T*0.1,rd.z),"爆破片 + 压力变送器"]);
+    const fd=nozzle(80,R*0.28,T*0.06,T*0.012); add(pipeMesh([V3(fd.x,fd.top,fd.z),V3(fd.x,Hv-T*0.02,fd.z),V3(fd.x,H*0.62,fd.z)],T*0.007,pm("proc",false)));
+    labels.push([V3(fd.x+T*0.04,H*0.66,fd.z),"液下补料浸管"]);
+    const fp=nozzle(175-5,R*0.28,T*0.05,T*0.01); add(pipeMesh([V3(fp.x,fp.top,fp.z),V3(fp.x,H*1.08,fp.z)],T*0.004,dark));
+    const lv=nozzle(55,R*0.8,T*0.05,T*0.03); mesh(new THREE.ConeGeometry(T*0.04,T*0.06,20),dark,lv.x,lv.top+T*0.03,lv.z);
+    labels.push([V3(lv.x+T*0.08,lv.top+T*0.12,lv.z),"雷达液位 / 泡沫探头"]);
+    // 侧壁 Ingold 25 mm 探头环
+    const probeM=new THREE.MeshStandardMaterial({color:0x2b6cb0,metalness:0.3,roughness:0.4});
+    const pyy=Math.max(hd+T*0.06,H*0.18);
+    ["DO","pH","温度","pCO₂","活细胞（电容）"].forEach((nm,i)=>{ const deg=105+i*15, [x,z]=polar(R,deg), ux=x/R, uz=z/R;
+      mesh(new THREE.CylinderGeometry(T*0.016,T*0.016,T*0.06,16),steel,ux*(R+T*0.03),pyy,uz*(R+T*0.03)).rotation.set(0,Math.atan2(-uz,ux),Math.PI/2);
+      const pb=new THREE.Mesh(new THREE.CylinderGeometry(T*0.008,T*0.008,T*0.24,10),probeM); pb.position.set(ux*(R+T*0.02),pyy-T*0.02,uz*(R+T*0.02)); pb.lookAt(V3(0,pyy-T*0.1,0)); pb.rotateX(Math.PI/2); add(pb);
+      const hd2=new THREE.Mesh(new THREE.BoxGeometry(T*0.03,T*0.03,T*0.03),dark); hd2.position.set(ux*(R+T*0.13),pyy+T*0.03,uz*(R+T*0.13)); add(hd2); });
+    labels.push([V3(...polar(R+T*0.4,150).slice(0,1).concat([pyy+T*0.12]).concat(polar(R+T*0.4,150).slice(1))),"Ingold 25 mm 探头：DO/pH/T/pCO₂/VCD"]);
+    // 取样阀（可蒸汽灭菌）
+    const [sx2,sz2]=polar(R,60), sux=sx2/R, suz=sz2/R, sy=H*0.25;
+    add(pipeMesh([V3(sux*R,sy,suz*R),V3(sux*(R+T*0.12),sy,suz*(R+T*0.12))],T*0.009,steel));
+    mesh(new THREE.SphereGeometry(T*0.022,12,10),steel,sux*(R+T*0.12),sy,suz*(R+T*0.12));
+    add(pipeMesh([V3(sux*(R+T*0.12),sy,suz*(R+T*0.12)),V3(sux*(R+T*0.12),sy-T*0.12,suz*(R+T*0.12))],T*0.005,pm("steam",state==="sip")));
+    labels.push([V3(sux*(R+T*0.3),sy+T*0.04,suz*(R+T*0.3)),"取样阀（SIP）"]);
+    // 罐底隔膜阀 + 收获管线 + 疏水阀
+    const bx=(p.mount==="bottom"&&Math.abs(off)<R*0.2)?-R*0.35:0, by=bx===0?0:hd*(1-Math.sqrt(Math.max(0,1-(bx/R)**2)));
+    mesh(new THREE.CylinderGeometry(T*0.04,T*0.04,T*0.05,24),steel,bx,by-T*0.03,0);
+    mesh(new THREE.CylinderGeometry(T*0.025,T*0.025,T*0.08,16),blueGrey,bx,by-T*0.1,0);
+    const harvActive=state==="harvest";
+    const drainPts=[V3(bx,by-T*0.03,0),V3(bx-T*0.15,by-T*0.03,0),V3(bx-T*0.15,floorY+T*0.12,0),V3(bx-T*0.15,floorY+T*0.12,-R*0.9),V3(R*1.25,floorY+T*0.12,-R*0.9)];
+    add(pipeMesh(drainPts,T*0.014,pm("proc",harvActive)));
+    mesh(new THREE.BoxGeometry(T*0.05,T*0.035,T*0.035),dark,bx-T*0.15,floorY+T*0.22,0);
+    add(pipeMesh([V3(bx-T*0.15,floorY+T*0.22,0),V3(bx-T*0.15,floorY+T*0.22,R*0.0-T*0.25),V3(bx-T*0.15,floorY+T*0.02,-T*0.25)],T*0.005,pm("steam",state==="sip")));
+    labels.push([V3(bx-T*0.35,by-T*0.08,0),"罐底隔膜阀（收获/排放）"]);
+    labels.push([V3(bx-T*0.2,floorY+T*0.32,-T*0.2),"疏水阀"]);
+    // 阀组撬块（CIP/SIP/工艺气体/收获）
+    const skX=R*1.35, skZ=-R*0.9, skW=T*0.35;
+    mesh(new THREE.BoxGeometry(skW,T*0.04,T*0.5),dark,skX,floorY+T*0.02,skZ+T*0.05);
+    [["cip",0.0],["steam",0.12],["gas",0.24],["proc",0.36]].forEach(([k,dz],i)=>{ const act=(k==="cip"&&state==="cip")||(k==="steam"&&state==="sip")||(k==="gas"&&state==="run")||(k==="proc"&&state==="harvest");
+      const z=skZ-T*0.15+dz*T; add(pipeMesh([V3(skX-skW*0.45,floorY+T*0.12,z),V3(skX+skW*0.45,floorY+T*0.12,z)],T*0.012,pm(k,act)));
+      mesh(new THREE.SphereGeometry(T*0.022,12,10),steel,skX,floorY+T*0.12,z); mesh(new THREE.CylinderGeometry(T*0.012,T*0.012,T*0.06,10),blueGrey,skX,floorY+T*0.17,z); });
+    add(pipeMesh([V3(R*1.25,floorY+T*0.12,-R*0.9),V3(skX-skW*0.45,floorY+T*0.12,skZ-T*0.15+0.36*T)],T*0.014,pm("proc",harvActive)));
+    // 纯蒸汽主管到罐顶
+    add(pipeMesh([V3(skX+skW*0.45,floorY+T*0.12,skZ-T*0.15+0.12*T),V3(R*1.55,floorY+T*0.12,skZ-T*0.03),V3(R*1.55,Hv+T*0.1,skZ-T*0.03),V3(gf.x,Hv+T*0.25,gf.z-T*0.12)],T*0.01,pm("steam",state==="sip")));
+    labels.push([V3(skX,floorY+T*0.3,skZ+T*0.25),"阀组撬：CIP · 纯蒸汽 · 工艺气体 · 收获"]);
+    // 支撑：小罐支腿 + 称重；大罐耳座 + 操作平台
+    if(!big){
+      for(let i=0;i<4;i++){ const a=i*Math.PI/2+Math.PI/4, lx=Math.cos(a)*Rc, lz=Math.sin(a)*Rc, yTopL=hd+T*0.12;
+        mesh(new THREE.CylinderGeometry(T*0.025,T*0.025,yTopL-floorY-T*0.05,12),blueGrey,lx,(yTopL+floorY+T*0.05)/2,lz);
+        mesh(new THREE.CylinderGeometry(T*0.05,T*0.055,T*0.05,16),dark,lx,floorY+T*0.025,lz); }
+      labels.push([V3(Rc*0.9,floorY+T*0.1,Rc*0.6),"支腿 + 称重模块"]);
+    } else {
+      platY=Hv*0.62;
+      const ringG=new THREE.RingGeometry(Rc+0.05,Rc+Math.max(1.4,T*0.55),72,1); ringG.rotateX(-Math.PI/2);
+      const plat=new THREE.Mesh(ringG,new THREE.MeshStandardMaterial({color:0x5b6670,metalness:0.5,roughness:0.7,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false})); plat.position.y=platY; add(plat);
+      const grid=new THREE.Mesh(ringG.clone(),new THREE.MeshBasicMaterial({color:0x8e9aa6,wireframe:true,transparent:true,opacity:0.35})); grid.position.y=platY+0.002; add(grid);
+      const Rr=Rc+Math.max(1.4,T*0.55); add(lineObj(circlePts(Rr,platY+1.1,96),new THREE.Color(0xd9a400),1)); add(lineObj(circlePts(Rr,platY+0.55,96),new THREE.Color(0xd9a400),0.8));
+      for(let i=0;i<16;i++){ const a=i*Math.PI/8; add(lineObj([V3(Math.cos(a)*Rr,platY,Math.sin(a)*Rr),V3(Math.cos(a)*Rr,platY+1.1,Math.sin(a)*Rr)],new THREE.Color(0xd9a400),0.9)); }
+      for(let i=0;i<4;i++){ const a=i*Math.PI/2+Math.PI/4, lx=Math.cos(a)*(Rc+0.12), lz=Math.sin(a)*(Rc+0.12);
+        const lug=mesh(new THREE.BoxGeometry(0.28,0.25,0.22),blueGrey,lx,platY+0.2,lz); lug.rotation.y=-a;
+        mesh(new THREE.CylinderGeometry(0.1,0.11,0.1,16),dark,lx,platY+0.05,lz); }
+      labels.push([V3(Rc+0.6,platY+1.35,-Rc*0.2),"操作平台 + 耳座称重"]);
+    }
+    // CIP 喷淋、SIP 蒸汽、收获流动
+    if(state==="cip"&&flags.anim!==null){
+      const N=520, dm=new THREE.InstancedMesh(new THREE.SphereGeometry(1,6,4),new THREE.MeshStandardMaterial({color:0xcfe8ff,transparent:true,opacity:0.85}),N); add(dm);
+      const drops=[]; const spawn=d=>{ const s=sprays[Math.floor(Math.random()*sprays.length)]; const th=Math.random()*Math.PI*2, ph=Math.acos(1-2*Math.random()); d.x=s.x; d.y=s.y; d.z=s.z; d.vx=Math.sin(ph)*Math.cos(th); d.vy=Math.cos(ph); d.vz=Math.sin(ph)*Math.sin(th); d.film=false; d.sz=T*(0.003+Math.random()*0.003); };
+      for(let i=0;i<N;i++){ const d={}; spawn(d); const adv=Math.random()*2; d.x+=d.vx*adv*R*0.4; d.y+=d.vy*adv*R*0.4; d.z+=d.vz*adv*R*0.4; drops.push(d); }
+      fx.push(dt=>{ drops.forEach((d,i)=>{
+        if(!d.film){ const v=R*1.6; d.x+=d.vx*v*dt; d.y+=d.vy*v*dt; d.z+=d.vz*v*dt; d.vy-=1.5*dt; const rr=Math.hypot(d.x,d.z);
+          if(rr>=R*0.97||d.y>=yHead(Math.min(rr,R))-T*0.01){ const a=Math.atan2(d.z,d.x); d.x=Math.cos(a)*R*0.97; d.z=Math.sin(a)*R*0.97; d.y=Math.min(d.y,Hv); d.film=true; } }
+        else { d.y-=T*0.35*dt; }
+        if(d.y<Math.max(Hl,hd*0.3)||d.y<-1) spawn(d);
+        _m.makeScale(d.sz,d.film?d.sz*2.5:d.sz,d.sz); _m.setPosition(d.x,d.y,d.z); dm.setMatrixAt(i,_m); }); dm.instanceMatrix.needsUpdate=true; });
+    }
+    if(state==="sip"){
+      const N=240, sm=new THREE.InstancedMesh(new THREE.SphereGeometry(1,8,6),new THREE.MeshStandardMaterial({color:0xffffff,transparent:true,opacity:0.13,depthWrite:false}),N); add(sm);
+      const puffs=Array.from({length:N},()=>({a:Math.random()*Math.PI*2,r:Math.sqrt(Math.random())*R*0.9,y:Math.random()*Hv,s:T*(0.04+Math.random()*0.05)}));
+      fx.push(dt=>{ puffs.forEach((q,i)=>{ q.y+=T*0.12*dt; q.a+=0.2*dt; if(q.y>Hv+R*topS*0.6) q.y=hd*0.2; _m.makeScale(q.s,q.s,q.s); _m.setPosition(Math.cos(q.a)*q.r,q.y,Math.sin(q.a)*q.r); sm.setMatrixAt(i,_m); }); sm.instanceMatrix.needsUpdate=true; });
+      const tag=textSprite("纯蒸汽 121–134 °C","#c8463c",T*0.08); tag.position.set(0,H*0.55,-R*0.2); add(tag);
+    }
+    if(state==="harvest"){
+      const path=new THREE.CurvePath(); for(let i=0;i<drainPts.length-1;i++) path.add(new THREE.LineCurve3(drainPts[i],drainPts[i+1]));
+      const N=40, dm=new THREE.InstancedMesh(new THREE.SphereGeometry(T*0.012,8,6),new THREE.MeshStandardMaterial({color:0xe7a46a,emissive:0x804010,emissiveIntensity:0.4}),N); add(dm);
+      const u=Array.from({length:N},(_,i)=>i/N);
+      fx.push(dt=>{ u.forEach((v,i)=>{ u[i]=(v+0.18*dt)%1; const q=path.getPointAt(u[i]); _m.makeTranslation(q.x,q.y,q.z); dm.setMatrixAt(i,_m); }); dm.instanceMatrix.needsUpdate=true; });
+    }
+  } else {
+    // ---------- 一次性袋 + 支撑罐 ----------
+    const holderM=new THREE.MeshStandardMaterial({color:0x9aa7b4,metalness:0.8,roughness:0.35,transparent:true,opacity:0.22,side:THREE.DoubleSide,depthWrite:false,clippingPlanes:clip});
+    mesh(new THREE.CylinderGeometry(R*1.07,R*1.07,Hv*0.97,48,1,true),holderM,0,Hv*0.97/2);
+    const dimple=new THREE.MeshStandardMaterial({color:0x7f8c99,metalness:0.6,roughness:0.5,clippingPlanes:clip});
+    for(let k=0;k<12;k++) mesh(new THREE.TorusGeometry(R*1.075,T*0.004,4,64),dimple,0,H*0.08+k*H*0.075).rotation.x=Math.PI/2;
+    labels.push([V3(-R*1.15,Hv*0.82,-R*0.2),"一次性袋（伽马辐照）+ 夹套支撑罐"]);
+    for(let i=0;i<3;i++){ const a=i*Math.PI*2/3+Math.PI/6; mesh(new THREE.CylinderGeometry(T*0.05,T*0.06,T*0.07,16),dark,Math.cos(a)*R*0.8,-T*0.13,Math.sin(a)*R*0.8); }
+    mesh(new THREE.CylinderGeometry(R*1.1,R*1.1,T*0.04,48),dark,0,-T*0.075);
+    labels.push([V3(R*0.9,-T*0.2,-R*0.2),"称重模块"]);
+    [-0.15,0.15].forEach(dx=>{ const x=R*0.4+dx*R, y=Hv+R*topS; mesh(new THREE.CylinderGeometry(T*0.035,T*0.035,T*0.2,20),new THREE.MeshStandardMaterial({color:0xd9822b,roughness:0.7}),x,y+T*0.18,-R*0.25); add(lineObj([V3(x,y,-R*0.25),V3(x,y+T*0.08,-R*0.25)],edgeC,0.8)); });
+    labels.push([V3(R*0.4,Hv+R*topS+T*0.4,-R*0.25),"排气过滤器（加热套）"]);
+    const tubeM=new THREE.MeshStandardMaterial({color:0xf1f1ee,roughness:0.6});
+    [[-0.9,0.3],[-0.7,0.6]].forEach(([fx2,fy])=>{ const c=new THREE.CatmullRomCurve3([V3(R*fx2,H*fy,-R*0.4),V3(R*fx2*1.3,H*fy*0.8,-R*0.5),V3(R*fx2*1.4,0,-R*0.6),V3(R*fx2*1.5,-T*0.1,-R*0.7)]); add(new THREE.Mesh(new THREE.TubeGeometry(c,24,T*0.008,6),tubeM)); });
+    const probeM=new THREE.MeshStandardMaterial({color:0x2b6cb0,metalness:0.3,roughness:0.4});
+    [0,1,2].forEach(i=>{ const deg=120+i*14, [x,z]=polar(R-T*0.04,deg), y=H*0.2+i*T*0.04; const pb=mesh(new THREE.CylinderGeometry(T*0.012,T*0.012,T*0.2,12),probeM,x,y,z); pb.rotation.z=Math.PI/2-0.25; pb.rotation.y=deg*Math.PI/180; });
+    labels.push([V3(...polar(R+T*0.3,135).slice(0,1).concat([H*0.26]).concat(polar(R+T*0.3,135).slice(1))),"一次性 DO/pH 传感器"]);
+    if(state==="harvest"){ const dp=[V3(R*0.2,0,0),V3(R*0.2,-T*0.1,0),V3(R*1.3,-T*0.1,-R*0.5)]; add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(dp),24,T*0.01,6),new THREE.MeshStandardMaterial({color:0xe7a46a,emissive:0x804010,emissiveIntensity:0.4}))); }
+  }
+
+  // ---------- 地面与人体比例 ----------
+  const gsz=Math.max(8,T*6); const grid=new THREE.GridHelper(gsz,Math.round(gsz/0.5),new THREE.Color(css("--muted")),new THREE.Color(css("--line"))); grid.position.y=floorY; grid.material.transparent=true; grid.material.opacity=0.35; add(grid);
+  const person=(x,y,z)=>{ const g=new THREE.Group(), m=new THREE.MeshStandardMaterial({color:0x6d7a88,roughness:0.8});
+    const legs=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.11,0.85,12),m); legs.position.y=0.425; g.add(legs);
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.15,0.62,12),m); body.position.y=1.16; g.add(body);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(0.12,16,12),new THREE.MeshStandardMaterial({color:0xf0f3f6,roughness:0.6})); head.position.y=1.62; g.add(head);
+    g.position.set(x,y,z); add(g); };
+  person(-(R+(su?0.9:1.1)),floorY,-R*1.3);
+  if(platY!=null) person(-(R+0.9)*0.75,platY,-(R+0.9)*0.75);
+  labels.push([V3(-(R+(su?0.9:1.1)),floorY+1.95,-R*1.3),"人 1.75 m"]);
+
+  // ---------- 尺寸 ----------
+  if(flags.dims){
+    const c=new THREE.Color(css("--accent")), s=Math.max(T*0.05,0.05);
+    add(dimLine(V3(-R,H+T*0.05,R*0.9),V3(R,H+T*0.05,R*0.9),c,`T ${fmt(T*1000,0)}`,s,V3(0,s*0.8,0)));
+    add(dimLine(V3(R*1.3+(su?0:T*0.1),0,R*0.3),V3(R*1.3+(su?0:T*0.1),H,R*0.3),c,`H ${fmt(H*1000,0)}`,s,V3(s*2.4,0,0)));
+    add(dimLine(V3(xAt(ys[0])-D/2,ys[0]-D*0.22,R*0.05),V3(xAt(ys[0])+D/2,ys[0]-D*0.22,R*0.05),c,`D ${fmt(D*1000,0)}`,s,V3(0,-s*0.8,0)));
+    add(dimLine(V3(-R*0.8,0,-R*0.15),V3(-R*0.8,ys[0],-R*0.15),c,`C ${fmt(ys[0]*1000,0)}`,s,V3(-s*2.2,0,0)));
+    if(ys.length>1) add(dimLine(V3(xAt(ys[1])+D*0.65,ys[0],0),V3(xAt(ys[1])+D*0.65,ys[1],0),c,`S ${fmt((ys[1]-ys[0])*1000,0)}`,s,V3(s*2.2,0,0)));
+  }
+  buildCallouts(flags.lbl?labels:[]);
+  scene.background=new THREE.Color(css("--scene-bg"));
+  sceneBox={top:driveTop,bottom:floorY,width:su?T*1.3:T*1.3+1.2,Hl};
+  const si=STATE_INFO[state][su?"su":"ss"]; $("stateInfo").textContent=si;
+  current._Hl=Hl;
+}
+const _m=window.THREE?new THREE.Matrix4():null, _o=window.THREE?new THREE.Object3D():null;
+function updateBubbles(dt,r){
+  const R=r.T/2, H=r._Hl||r.H, w=r.N*2*Math.PI*0.22, ys=r.G.ys, D=r.D;
+  bubbleSets.forEach(set=>{ set.data.forEach((b,i)=>{
+    b.y+=r.T*set.rise*dt*(1+Math.min(1.5,r.vs*300));
+    const a=w*dt, cx=b.x*Math.cos(a)-b.z*Math.sin(a), cz=b.x*Math.sin(a)+b.z*Math.cos(a); b.x=cx; b.z=cz;
+    for(const yi of ys) if(Math.abs(b.y-yi)<D*0.12){ const rr=Math.hypot(b.x,b.z)||1e-6, nr=Math.min(R*0.93,rr*(1+dt*1.5*r.N)+dt*D*0.15); b.x*=nr/rr; b.z*=nr/rr; }
+    if(b.y>H){ const s=b.sp(); b.x=s[0]; b.y=s[1]; b.z=s[2]; }
+    _m.makeScale(b.sz,b.sz,b.sz); _m.setPosition(b.x,b.y,b.z); set.m.setMatrixAt(i,_m);
+  }); set.m.instanceMatrix.needsUpdate=true; });
+}
+function updateTracers(dt){
+  if(!tracers||!current) return; const sp=Math.min(0.6,0.05+current.N*0.18), per=tracers.u.length/tracers.curves.length;
+  tracers.u.forEach((u,i)=>{ const c=tracers.curves[Math.floor(i/per)]; const nu=(u+sp*dt)%1; tracers.u[i]=nu; const pnt=c.getPointAt(nu), tg=c.getTangentAt(nu);
+    _o.position.copy(pnt); _o.quaternion.setFromUnitVectors(V3(0,1,0),tg); _o.updateMatrix(); tracers.mesh.setMatrixAt(i,_o.matrix); });
+  tracers.mesh.instanceMatrix.needsUpdate=true;
+}
+function setView(kind){
+  if(!camera||!current) return;
+  const top=sceneBox.top+0.3, bot=sceneBox.bottom, Ht=top-bot, c=V3(sceneBox.width*0.08,bot+Ht*0.57,-sceneBox.width*0.1), dist=Math.max(sceneBox.width*1.6,Ht)*2.05;
+  const d={front:V3(0,0.06,1),iso:V3(0.8,0.42,1),top:V3(0.001,1,0.001)}[kind].normalize();
+  camera.position.copy(c).addScaledVector(d,dist); controls.target.copy(c); controls.update();
+}
+let callouts=[];
+function buildCallouts(labels){
+  const svg=$("callSvg"), list=$("callList"); svg.innerHTML=""; list.innerHTML="";
+  callouts=labels.map(([pos,text],i)=>{
+    const li=document.createElement("li"); li.innerHTML=`<b>${i+1}</b><span>${text}</span>`; li.title=text; list.appendChild(li);
+    const ns="http://www.w3.org/2000/svg";
+    const path=document.createElementNS(ns,"path"), dot=document.createElementNS(ns,"circle"), num=document.createElementNS(ns,"text");
+    dot.setAttribute("r","7"); num.textContent=i+1; svg.appendChild(path); svg.appendChild(dot); svg.appendChild(num);
+    const hi=on=>{ li.classList.toggle("hi",on); path.classList.toggle("hi",on); dot.setAttribute("r",on?"9":"7"); };
+    li.addEventListener("mouseenter",()=>hi(true)); li.addEventListener("mouseleave",()=>hi(false));
+    return {pos,li,path,dot,num};
+  });
+  list.style.display=callouts.length?"":"none"; applyOffset();
+}
+const _pv=window.THREE?new THREE.Vector3():null;
+function updateCallouts(){
+  if(!callouts.length||!camera) return;
+  const host=canvas.parentElement, hb=host.getBoundingClientRect(), cb=canvas.getBoundingClientRect();
+  const ox=cb.left-hb.left, oy=cb.top-hb.top, w=cb.width, h=cb.height;
+  const info=$("stateInfo"), lg=$("legend");
+  const top=(info.getBoundingClientRect().bottom-hb.top)+8, bottom=(lg.getBoundingClientRect().top-hb.top)-6;
+  const listW=callouts[0].li.offsetWidth||244, colX=hb.width-10-listW;
+  const items=callouts.map(c=>{ _pv.copy(c.pos).project(camera); return {c,x:ox+(_pv.x+1)/2*w,y:oy+(1-_pv.y)/2*h}; });
+  items.sort((a,b)=>a.y-b.y);
+  const n=items.length, gap=Math.min(21,(bottom-top)/Math.max(1,n)), hgt=18;
+  let y=top; items.forEach(it=>{ it.ly=Math.max(it.y-hgt/2,y); y=it.ly+gap; });
+  let lim=bottom-hgt; for(let i=n-1;i>=0;i--){ items[i].ly=Math.min(items[i].ly,lim); lim=items[i].ly-gap; }
+  items.forEach((it,k)=>{ const c=it.c, ly=it.ly; if(c.k!==k){ c.k=k; c.li.firstChild.textContent=k+1; c.num.textContent=k+1; } const my=ly+hgt/2, ax=Math.min(it.x,colX-24);
+    c.li.style.top=ly+"px";
+    c.path.setAttribute("d",`M${ax.toFixed(1)} ${it.y.toFixed(1)} L${(colX-14).toFixed(1)} ${my.toFixed(1)} L${(colX-2).toFixed(1)} ${my.toFixed(1)}`);
+    c.dot.setAttribute("cx",ax.toFixed(1)); c.dot.setAttribute("cy",it.y.toFixed(1)); c.num.setAttribute("x",ax.toFixed(1)); c.num.setAttribute("y",it.y.toFixed(1)); });
+}
+let last=performance.now();
+function loop(t){ requestAnimationFrame(loop); const dt=Math.min(0.05,(t-last)/1000); last=t; if(!renderer||!current) return;
+  if(flags.anim){ const w=current.N*2*Math.PI*0.35; spinners.forEach(s=>s.obj.rotation.y+=s.dir*w*s.k*dt); updateBubbles(dt,current); updateTracers(dt); fx.forEach(f=>f(dt)); }
+  if(gal&&gal.active) gal.render(dt);
+  controls.update(); renderer.render(scene,camera); updateCallouts(); }
+
+/* ===== 叶轮选型 ===== */
+const IMPINFO={
+  rushton:{flowT:"径向",gas:"强，气泡破碎能力好",gasP:"通气后功率下降约 50–65%",stab:"扭矩稳定",shear:"叶片后方局部能耗最高",pos:"底层（气体分散）",use:"微生物发酵；细胞培养里只在底层负责打散气体，需看 ε_max",src:1},
+  pbt4:{flowT:"斜流（轴向 + 径向）",gas:"中等",gasP:"下推时通气后易有功率波动",stab:"下推中等，上推较好",shear:"中等",pos:"各层通用",use:"CHO 悬浮细胞的通用选择，多层叠用",src:2},
+  hydro:{flowT:"轴向（低实度翼型）",gas:"弱，不适合单独处理大量气体",gasP:"保持较好",stab:"下推时有波动",shear:"低",pos:"上层（整体循环）",use:"高液柱罐上层；同样流量只需斜叶约 60% 的功率",src:3},
+  a315:{flowT:"轴向（高实度翼型）",gas:"强，在水中与 Rushton 接近",gasP:"通气后功率下降约 30–50%",stab:"下推时有波动",shear:"低",pos:"底层（气体分散）",use:"底层用来代替 Rushton 的低功率方案；专利推荐底层 A315 + 上层 A310",src:4},
+  ee:{flowT:"轴向（常用上推）",gas:"中等，上推时兼顾 kLa",gasP:"—",stab:"上推较稳",shear:"低（但与斜叶、A315 在剪切上本质相同）",pos:"单层或底层",use:"微载体 / 贴壁细胞，以刚好悬浮的低转速运行",src:5},
+  marine:{flowT:"轴向",gas:"弱",gasP:"—",stab:"—",shear:"低",pos:"小罐单层",use:"小型罐、低功率温和混合",src:2},
+  seg3:{flowT:"轴向",gas:"中等",gasP:"—",stab:"—",shear:"低",pos:"两层同型",use:"Biostat STR 系列，与组合分布器配用",src:6},
+  sub3:{flowT:"斜流",gas:"中等",gasP:"—",stab:"—",shear:"中等",pos:"偏心单层",use:"HyPerforma S.U.B. 一次性",src:7},
+  xdr4:{flowT:"轴向上推",gas:"中等",gasP:"—",stab:"—",shear:"中等",pos:"底装偏心单层",use:"Xcellerex XDR 一次性",src:8}
+};
+const IMPSRC={
+  1:["Nienow 等：高实度翼型 vs Rushton","https://bvbvf1.bib-bvb.de/vufind/PrimoRecord/cdi_proquest_miscellaneous_15737771"],
+  2:["BioProcess Int.：细胞系与叶轮","https://www.bioprocessintl.com/cell-line-development/which-impeller-is-right-for-your-cell-line-"],
+  3:["Lightnin 叶轮资料（A310/A315）","https://www.scribd.com/document/618865435/Lightnin-Mixers"],
+  4:["哺乳动物细胞培养罐专利（A310 + A315）","https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/10883076"],
+  5:["Collignon：微载体轴流叶轮选型","https://orbi.uliege.be/handle/2268/72557"],
+  6:["Sartorius 设计空间","https://pmc.ncbi.nlm.nih.gov/articles/PMC3980816/"],
+  7:["Thermo 2000 L 数据表","https://assets.thermofisher.com/TFS-Assets/BPD/brochures/hyperforma-5-1-single-use-bioreactor-data-sheet-2000L.pdf"],
+  8:["Cytiva XDR 数据表","https://cdn.cytivalifesciences.com/api/public/content/digi-23694-pdf"]
+};
+const GAL_ORDER=["rushton","pbt4","hydro","a315","ee","marine","seg3","sub3","xdr4"];
+let gal=null, galSel="a315";
+function initGallery(){
+  if(gal||!window.THREE) return;
+  const cv=$("impCanvas"), rd=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true}); rd.setPixelRatio(Math.min(devicePixelRatio,2));
+  const sc=new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xffffff,0x6a7785,1.0)); const dl=new THREE.DirectionalLight(0xffffff,0.8); dl.position.set(2,5,6); sc.add(dl);
+  const cam=new THREE.OrthographicCamera(-1,1,1,-1,0.1,100); cam.position.set(0,0,20); cam.lookAt(0,0,0);
+  const metal=new THREE.MeshStandardMaterial({color:0xc9d1d9,metalness:0.55,roughness:0.28});
+  const cells=GAL_ORDER.map((k,i)=>{
+    const g=new THREE.Group(); g.rotation.x=0.82; sc.add(g);
+    const imp=makeImpeller(k,1,metal); g.add(imp);
+    const ring=new THREE.Line(new THREE.BufferGeometry().setFromPoints(circlePts(0.95,-0.62,64)),new THREE.LineBasicMaterial({color:0x8a97a5,transparent:true,opacity:0.5})); g.add(ring);
+    const hl=new THREE.Mesh(new THREE.RingGeometry(0.97,1.03,64),new THREE.MeshBasicMaterial({color:0x0a6ebd,transparent:true,opacity:0,side:THREE.DoubleSide})); hl.rotation.x=-Math.PI/2; hl.position.y=-0.62; g.add(hl);
+    const fl=IMP[k].flow, tr=[], cone=new THREE.ConeGeometry(0.035,0.1,8), cm=new THREE.MeshStandardMaterial({color:0x2f8f6b});
+    const n=fl==="radial"?12:16;
+    for(let j=0;j<n;j++){ const m=new THREE.Mesh(cone,cm); g.add(m); tr.push({m,u:(j%4)/4,a:Math.floor(j/4)*Math.PI*2/(n/4)+(fl==="radial"?(j%2)*0.4:0)}); }
+    return {k,g,imp,hl,tr,fl};
+  });
+  const resizeG=()=>{ const w=cv.clientWidth,h=cv.clientHeight; if(!w||!h) return; rd.setSize(w,h,false);
+    const W=6.6, Hh=W*h/w; cam.left=-W/2; cam.right=W/2; cam.top=Hh/2; cam.bottom=-Hh/2; cam.updateProjectionMatrix();
+    cells.forEach((c,i)=>{ const col=i%3,row=Math.floor(i/3); c.g.position.set((col-1)*2.2,(1-row)*Hh/3+0.12,0); }); };
+  new ResizeObserver(resizeG).observe(cv); resizeG();
+  const tmp=new THREE.Vector3(), up=V3(0,1,0);
+  const pathPt=(fl,u,a)=>{ // 返回局部坐标
+    if(fl==="radial"){ const r=0.42+0.55*u; return V3(Math.cos(a)*r,(u>0.6?(u-0.6)*0.6*(a%0.8>0.4?1:-1):0),Math.sin(a)*r); }
+    let q=u; if(fl==="up") q=1-u;
+    const L=[[0.22,0.5],[0.22,-0.55],[0.85,-0.55],[0.85,0.5]]; const seg=q*4, i=Math.floor(seg)%4, f=seg-Math.floor(seg), A=L[i], B=L[(i+1)%4];
+    const r=A[0]+(B[0]-A[0])*f, y=A[1]+(B[1]-A[1])*f; return V3(Math.cos(a)*r,y,Math.sin(a)*r);
+  };
+  gal={rd,sc,cam,cells,active:false,render(dt){
+    cells.forEach(c=>{ c.imp.rotation.y+=(IMP[c.k].flow==="up"?1:-1)*dt*2.2; c.hl.material.opacity=c.k===galSel?0.9:0;
+      c.tr.forEach(t=>{ t.u=(t.u+dt*0.32)%1; const p=pathPt(c.fl,t.u,t.a), p2=pathPt(c.fl,(t.u+0.01)%1,t.a); t.m.position.copy(p); tmp.copy(p2).sub(p).normalize(); if(tmp.lengthSq()>0) t.m.quaternion.setFromUnitVectors(up,tmp); }); });
+    rd.render(sc,cam);
+  }};
+  const ov=$("impOverlay"); ov.innerHTML=GAL_ORDER.map(k=>`<button class="imp-cell" data-k="${k}" aria-pressed="${k===galSel}"><span>${IMP[k].name}</span><small>Np ${IMP[k].Np} · ${IMPINFO[k].flowT}</small></button>`).join("");
+  ov.querySelectorAll(".imp-cell").forEach(b=>b.addEventListener("click",()=>{ galSel=b.dataset.k; ov.querySelectorAll(".imp-cell").forEach(x=>x.setAttribute("aria-pressed",x===b)); renderImpDetail(); }));
+}
+function renderImpDetail(){
+  const k=galSel, I=IMP[k], f=IMPINFO[k], s=IMPSRC[f.src];
+  $("impDetail").innerHTML=`<h2>${I.name}</h2>
+  <table class="kv">
+   <tr><td>流型</td><td>${f.flowT}</td></tr><tr><td>功率准数 Np / 流量准数 Nq</td><td>${I.Np} / ${I.Nq}${k==="ee"?" <span class=\"tag\">Np 待厂商数据</span>":""}</td></tr>
+   <tr><td>气体分散</td><td>${f.gas}</td></tr><tr><td>通气后功率</td><td>${f.gasP}</td></tr><tr><td>运行稳定性</td><td>${f.stab}</td></tr>
+   <tr><td>剪切 / 局部能耗</td><td>${f.shear}</td></tr><tr><td>常见位置</td><td>${f.pos}</td></tr></table>
+  <p>${f.use}</p><p class="hint">来源：<a href="${s[1]}">${s[0]}</a></p>
+  <div class="row"><button class="btn primary" id="impToB">设为底层叶轮</button><button class="btn primary" id="impToU">设为上层叶轮</button></div>`;
+  const set=(lvl)=>{ if(lvl==="B"){ S.impB=k; S.npB=I.Np; S.phi=I.phi; } else { S.impU=k; S.npU=I.Np; if(S.nImp<2) S.nImp=2; } writeForm(); curPreset=""; renderScenario(); update(false); renderImpCompare(); };
+  $("impToB").onclick=()=>set("B"); $("impToU").onclick=()=>set("U");
+}
+const CONFIGS=[
+  {id:"pbt2",name:"多层 45° 斜叶",b:"pbt4",u:"pbt4"},
+  {id:"rt_pbt",name:"Rushton 底 + 斜叶上",b:"rushton",u:"pbt4"},
+  {id:"a315_a310",name:"A315 底 + A310 上（翼型组合）",b:"a315",u:"hydro"},
+  {id:"a310",name:"全翼型 A310",b:"hydro",u:"hydro"},
+  {id:"ee",name:"象耳式（上推）",b:"ee",u:"ee"},
+  {id:"rt2",name:"全 Rushton（微生物常用）",b:"rushton",u:"rushton"}
+];
+function recommend(){
+  const cell=$("impCell").value, r=current, p=S, tall=p.ht>=1.6||p.vol>=10000;
+  const out={ids:[],why:[]};
+  if(cell==="micro"){ out.ids=["rt2"]; out.why.push("微生物耐剪切、耗氧高，Rushton 气体分散最强，通常多层 Rushton。"); }
+  else if(cell==="carrier"){ out.ids=["ee","a310"]; out.why.push("微载体以“刚好悬浮”的最低转速为目标：大叶径轴流（象耳式、翼型）在刚好悬浮转速下机械应力最小。","可加大 D/T（约 0.45–0.5）以降低所需转速。"); }
+  else {
+    const tight=r&&(r.OTR<1.2*r.OUR||r.vvm>0.05);
+    if(cell==="dense"||tight){ out.ids=["a315_a310","rt_pbt"]; out.why.push("高 OUR / 高通气时，底层要能处理气体：高实度翼型 A315 或 Rushton；上层用轴流负责整体循环。","A315 通气后功率下降约 30–50%，Rushton 约 50–65%；同样 Pg/V 下 A315 转速更高、扭矩更小。"); }
+    else { out.ids=["a315_a310","pbt2"]; out.why.push("常规 CHO 补料分批：多层斜叶或“A315 底 + A310 上”都可，后者同功率下循环流量更大。"); }
+    if(tall) out.why.push(`液柱高（H/T ${fmt(p.ht,2)}、${fmt(p.vol,0)} L）：建议 3 层，上层用翼型，间距 1–2 倍底叶径，顶叶液面下约 0.5 倍叶径。`);
+  }
+  out.why.push("翼型叶轮功率准数低，适合配较大的叶径比（D/T）以降低转速和叶尖速度；下表可切换翼型方案的 D/T。下推轴流在通气时易有扭矩/流量波动，上推方式在气液传质和稳定性上更有优势。");
+  out.why.push("剪切不是主要区分点：象耳式、斜叶、A315 在“剪切敏感性”上本质相同；10–150 W/m³ 的常规搅拌不太会伤到 CHO。选型重点是气体处理、混合/循环和扭矩稳定性。");
+  return out;
+}
+function renderImpCompare(){
+  if(!current) return;
+  const base=current, target=base.PgV, n=Math.max(2,S.nImp), rec=recommend();
+  const big=["a315_a310","a310","ee"], dsel=$("impDt").value;
+  const rows=CONFIGS.map(c=>{ const dt=(big.includes(c.id)&&dsel!=="same")?Math.max(S.dt,+dsel):S.dt; const p=Object.assign({},S,{impB:c.b,impU:c.u,npB:IMP[c.b].Np,npU:IMP[c.u].Np,phi:IMP[c.b].phi,nImp:n,dt});
+    const rpm=bisect(x=>compute(p,{rpm:x}).PgV,target,1,800,true), r=compute(p,{rpm}); const torque=r.P0/(2*Math.PI*r.N);
+    const okv=r.tip<S.tipMax&&r.edrMax<S.edrMax; return {c,p,r,rpm,torque,dt,okv,rec:rec.ids.includes(c.id)}; });
+  const minTc=Math.min(...rows.map(x=>x.r.tc));
+  const st={tip:v=>v<S.tipMax?"ok":v<S.tipMax*1.25?"warn":"bad",edr:v=>v<S.edrMax?"ok":v<2.9e5?"warn":"bad"};
+  const cell=(v,s)=>`<td>${s&&s!=="ok"?pill(s,v):v}</td>`;
+  $("impCompare").innerHTML=`<tr><th>方案（${n} 层）</th><th>D/T</th><th>转速 rpm</th><th>叶尖 m/s</th><th>扭矩 N·m</th><th>循环时间 s</th><th>ε_max W/m³</th><th>通气后功率</th><th></th></tr>`+
+   rows.map(x=>`<tr${x.rec?' class="src"':""}><td>${x.rec?(x.okv?pill("ok","推荐"):pill("warn","推荐·需调整"))+" ":""}${x.c.name}</td><td>${x.dt}</td><td>${fmt(x.rpm,1)}</td>${cell(fmt(x.r.tip,2),st.tip(x.r.tip))}<td>${fmt(x.torque,0)}</td><td>${fmt(x.r.tc,1)}${x.r.tc===minTc?" ★":""}</td>${cell(sci(x.r.edrMax),st.edr(x.r.edrMax))}<td style="font-family:var(--font-body)">${IMPINFO[x.c.b].gasP}</td><td><button class="btn" data-cfg="${x.c.id}">应用</button></td></tr>`).join("");
+  $("impCompare").querySelectorAll("button[data-cfg]").forEach(b=>b.onclick=()=>{ const c=CONFIGS.find(z=>z.id===b.dataset.cfg); const x=rows.find(z=>z.c===c);
+    Object.assign(S,{impB:c.b,impU:c.u,npB:IMP[c.b].Np,npU:IMP[c.u].Np,phi:IMP[c.b].phi,nImp:n,dt:x.dt,rpm:Math.round(x.rpm*10)/10}); writeForm(); curPreset=""; renderScenario(); update(false); renderImpCompare(); scrollTo({top:0,behavior:"smooth"}); });
+  $("impRec").innerHTML=rec.why.map(w=>`<li>${w}</li>`).join("");
+  $("impNote").textContent=`对比条件：保持当前 Pg/V ${fmt(target,1)} W/m³ 与当前几何、通气不变，反算每种方案所需转速。kLa 按 Van’t Riet 式只取决于 Pg/V 与 vs，所以同功率下各方案 kLa 相同；实际差别体现在气体处理、循环时间、扭矩和局部能耗上。`;
+}
+
+/* ===== 批次动态模拟（P2，演示参数） ===== */
+const SIM_SCHEMA=[
+ ["工艺",[
+  ["days","培养天数","d",1,14],["X0","接种密度","10⁶/mL",0.1,0.5],["v0frac","起始体积 / 工作体积","",0.05,0.75],
+  ["tShift","降温时间","d",0.5,5],["muShift","降温后 μ 倍数","",0.05,0.6],["qpShift","降温后 qP 倍数","",0.05,1.3],["qo2Shift","降温后 qO₂ 倍数","",0.05,0.85],
+  ["feedStart","补料开始","d",1,3],["feedPct","每日补料量（占起始体积）","%",0.5,3.5],["feedG","补料葡萄糖","mM",10,200],["feedQ","补料谷氨酰胺","mM",1,100],
+  ["gMin","葡萄糖维持下限","mM",1,10],["gTop","葡萄糖补到","mM",1,25],
+  ["G0","初始葡萄糖","mM",1,35],["Q0","初始谷氨酰胺","mM",0.5,4],["L0","初始乳酸","mM",0.5,0],["A0","初始氨","mM",0.1,0.5]]],
+ ["细胞动力学（演示值）",[
+  ["muMax","μmax","1/h",0.001,0.038],["Kg","K_glc","mM",0.1,0.5],["Kq","K_gln","mM",0.05,0.1],["KIlac","KI,lac","mM",1,45],["KIamm","KI,amm","mM",0.5,10],
+  ["kd0","基础死亡速率 kd","1/h",0.0002,0.0015],["kdA","氨致死 kd,amm 最大","1/h",0.001,0.004],["KdA","氨致死半饱和","mM",1,12],["kdS","饥饿死亡 kd,glc","1/h",0.001,0.02],
+  ["Yxg","Yx/glc","10⁹ 细胞/mmol",0.01,0.5],["mg","葡萄糖维持","pmol/细胞/h",0.002,0.01],["Ylg","Ylac/glc","mol/mol",0.05,1.0],
+  ["lacShiftG","乳酸转消耗：葡萄糖低于","mM",0.5,3],["lacShiftDay","或从第","d",0.5,6],["qLc","乳酸消耗速率","pmol/细胞/h",0.005,0.04],
+  ["Yxq","Yx/gln","10⁹ 细胞/mmol",0.05,2.0],["mq","谷氨酰胺维持","pmol/细胞/h",0.001,0.003],["Yaq","Yamm/gln","mol/mol",0.05,0.3],
+  ["qP","比生产速率 qP","pg/细胞/天",1,20],["kDO","DO 半饱和","% 空饱",0.5,2]]],
+ ["DO / CO₂ 串级控制",[
+  ["xMax","O₂ 分数上限","",0.05,0.8],["vMmax","微泡通气上限","vvm",0.005,0.05],["vAmax","大泡通气上限","vvm",0.005,0.08]]]
+];
+const SIMP={};
+SIM_SCHEMA.forEach(g=>g[1].forEach(f=>SIMP[f[0]]=f[4]));
+Object.assign(SIMP,{useVM:true,useRpm:true,co2Auto:true});
+let simFitRes=null, simLast=null;
+function buildSimForm(){
+  const box=$("simForm"); box.innerHTML="";
+  SIM_SCHEMA.forEach((g,gi)=>{ const d=document.createElement("details"); d.open=gi!==1; d.innerHTML=`<summary>${g[0]}</summary>`;
+    g[1].forEach(f=>{ const w=document.createElement("div"); w.className="field"; w.innerHTML=`<label for="sp_${f[0]}">${f[1]}${f[2]?`<span class="unit">${f[2]}</span>`:""}</label><input id="sp_${f[0]}" type="number" step="${f[3]}" value="${SIMP[f[0]]}">`; d.appendChild(w); });
+    if(gi===2){ [["useVM","供氧不足时提高微泡通气"],["useRpm","再不足时提高转速（受叶尖速度与设备上限）"],["co2Auto","pCO₂ 超上限时提高大泡通气"]].forEach(([k,l])=>{ const c=document.createElement("label"); c.className="check"; c.innerHTML=`<input type="checkbox" id="sp_${k}" ${SIMP[k]?"checked":""}> ${l}`; d.appendChild(c); });
+      const h=document.createElement("p"); h.className="hint"; h.textContent="起始转速、通气、O₂ 分数、DO 设定和限值取主面板。串级顺序：先提 O₂ 分数，再提微泡通气，最后提转速。"; d.appendChild(h); }
+    box.appendChild(d); });
+  box.querySelectorAll("input").forEach(el=>el.addEventListener("change",()=>{ readSim(); }));
+}
+function readSim(){ SIM_SCHEMA.forEach(g=>g[1].forEach(f=>{ const v=parseFloat($("sp_"+f[0]).value); if(isFinite(v)) SIMP[f[0]]=v; })); ["useVM","useRpm","co2Auto"].forEach(k=>SIMP[k]=$("sp_"+k).checked); }
+function writeSim(){ SIM_SCHEMA.forEach(g=>g[1].forEach(f=>{ $("sp_"+f[0]).value=+(+SIMP[f[0]]).toPrecision(4); })); }
+
+/* 罐径固定时，由液量反算 H/T */
+function htFor(base,Vl){
+  const T=geometry(base).T, h=HEADS[base.head]||HEADS.ell, v=Vl/1000/T**3;
+  return Math.max(h.k+0.02,h.k+(v-h.c)/(Math.PI/4));
+}
+/* 一个控制小时：按耗氧调 O₂ → 微泡 → 转速；按 pCO₂ 调大泡；不足时求稳态 DO */
+function controlHour(base,Vl,Xv,qO2t,prev){
+  const ht=htFor(base,Vl), G0=geometry(base);
+  const rpmCap=Math.min(base.rpmMax,base.tipMax/(Math.PI*G0.D)*60*0.999);
+  let rpm=Math.max(base.rpm,prev?prev.rpm:0), vM=Math.max(base.microOn?base.vvmM:0,prev?prev.vM:0), vA=Math.max(base.macroOn?base.vvmA:0,prev?prev.vA:0);
+  const enrM=base.microOn;
+  const mk=x=>Object.assign({},base,{vol:Vl,ht,vcd:Xv,qo2:qO2t,rpm,vvmM:vM,vvmA:vA},x!=null?(enrM?{xo2M:x}:{xo2A:x}):{});
+  const need=r=>{ const F=r.OUR*r.V/3600; return enrM? (r.AM>0? r.ystar+(F-r.AA*(base.xo2A-r.ystar))/r.AM : Infinity) : (r.AA>0? r.ystar+(F-r.AM*(base.xo2M-r.ystar))/r.AA : Infinity); };
+  let r=compute(mk()), x=need(r), guard=0;
+  while(x>SIMP.xMax&&guard++<60){
+    if(SIMP.useVM&&enrM&&vM<SIMP.vMmax-1e-9){ vM=Math.min(SIMP.vMmax,vM*1.15+0.0005); }
+    else if(SIMP.useRpm&&rpm<rpmCap-0.05){ rpm=Math.min(rpmCap,rpm*1.05+0.5); }
+    else break;
+    r=compute(mk()); x=need(r);
+  }
+  if(SIMP.co2Auto&&base.macroOn){ let g2=0; r=compute(mk(Math.min(Math.max(x,0.21),SIMP.xMax))); while(r.pco2>base.pco2Hi&&vA<SIMP.vAmax-1e-9&&g2++<40){ vA=Math.min(SIMP.vAmax,vA*1.2+0.001); r=compute(mk(Math.min(Math.max(need(compute(mk())),0.21),SIMP.xMax))); } x=need(compute(mk())); }
+  const xs=Math.min(Math.max(x,0.21),SIMP.xMax);
+  r=compute(mk(xs));
+  let DO=base.doset;
+  if(r.OTR<r.OUR*0.999){ const S_=r.AM+r.AA, yIn=r.AM*(enrM?xs:base.xo2M)+r.AA*(enrM?base.xo2A:xs); const yeq=S_>0?(yIn-r.OUR*r.V/3600)/S_:0; DO=Math.max(0,100*yeq*r.HO2*r.PmA/r.cAirHead); }
+  const rCap=compute(mk(SIMP.xMax)); // 当前通气/转速下 O₂ 用到上限时的最大供氧
+  return {rpm,vM,vA,x:xs,DO,pco2:r.pco2,OTRcap:rCap.OTR,OUR:r.OUR,tip:r.tip,PgV:r.PgV,top:r.topSub,D:r.D,ht};
+}
+function simulate(base,P,opt){
+  opt=opt||{}; const kin=!!opt.kineticOnly;
+  const Vw=base.vol, V0=Vw*P.v0frac, dt=0.25, nH=Math.round(P.days*24);
+  let Xv=P.X0, Xd=0, G=P.G0, Q=P.Q0, L=P.L0, A=P.A0, Pt=0, V=V0, ctl=null, DO=base.doset, pco2=60;
+  const out=[], ev=[]; const flag={};
+  const evOnce=(k,t,msg)=>{ if(!flag[k]){ flag[k]=1; ev.push({t,msg}); } };
+  let IVCD=0;
+  for(let h=0; h<=nH; h++){
+    const t=h, day=t/24, shifted=day>=P.tShift;
+    const qO2t=base.qo2*(shifted?P.qo2Shift:1);
+    if(!kin){ ctl=controlHour(base,V,Xv,qO2t,ctl); DO=ctl.DO; pco2=ctl.pco2;
+      if(ctl.x>=SIMP.xMax-1e-6) evOnce("x",t,`O₂ 分数到达上限 ${fmt(SIMP.xMax*100,0)}%`);
+      if(ctl.vM>(base.microOn?base.vvmM:0)*1.02+1e-6) evOnce("vm",t,`开始提高微泡通气（${fmt(ctl.vM,4)} vvm）`);
+      if(ctl.rpm>base.rpm*1.01) evOnce("rpm",t,`开始提高转速（${fmt(ctl.rpm,0)} rpm）`);
+      if(ctl.vA>(base.macroOn?base.vvmA:0)*1.02+1e-6) evOnce("va",t,`为控 pCO₂ 提高大泡通气（${fmt(ctl.vA,4)} vvm）`);
+      if(DO<base.doset-5) evOnce("do",t,`DO 跌破设定（${fmt(DO,0)}%），供氧能力用尽`);
+      if(pco2>base.pco2Hi) evOnce("co2",t,`pCO₂ 超过上限（${fmt(pco2,0)} mmHg）`);
+      if(ctl.top<0.5*ctl.D) evOnce("sub",t,"液位低：顶层叶轮淹没不足 0.5 D");
+    } else { DO=base.doset; pco2=60; }
+    out.push({t,day,Xv,Xd,via:Xv/(Xv+Xd)*100,G,Q,L,A,P:Pt/1000,V,DO,pco2,OUR:qO2t*Xv,OTRcap:ctl?ctl.OTRcap:null,rpm:ctl?ctl.rpm:base.rpm,vM:ctl?ctl.vM:base.vvmM,vA:ctl?ctl.vA:base.vvmA,x:ctl?ctl.x:base.xo2M});
+    if(h===nH) break;
+    // 每日补料（在整天时刻）
+    if(h>0&&h%24===0&&day>=P.feedStart){
+      let Vf=P.feedPct/100*V0; if(V+Vf>Vw){ Vf=Math.max(0,Vw-V); evOnce("vol",t,"已到工作体积，补料受限"); }
+      if(Vf>0){ const Vn=V+Vf; G=(G*V+P.feedG*Vf)/Vn; Q=(Q*V+P.feedQ*Vf)/Vn; L=L*V/Vn; A=A*V/Vn; Xv=Xv*V/Vn; Xd=Xd*V/Vn; Pt=Pt*V/Vn; V=Vn; }
+    }
+    if(day>=P.feedStart&&G<P.gMin){ G=P.gTop; evOnce("gtop",t,`葡萄糖低于 ${P.gMin} mM，开始补加到 ${P.gTop} mM（按小时检测）`); }
+    for(let k=0;k<4;k++){ // 4 个 0.25 h 子步
+      const tt=t+k*dt, sh=tt/24>=P.tShift;
+      const fG=G/(P.Kg+G), fQ=P.Q0>0||P.feedQ>0?Q/(P.Kq+Q):1, fL=P.KIlac/(P.KIlac+L), fA=P.KIamm/(P.KIamm+A);
+      const fC=pco2>50?Math.max(0.3,1-0.0009*(pco2-50)):1, fD=DO/(P.kDO+DO);
+      const mu=P.muMax*(sh?P.muShift:1)*fG*fQ*fL*fA*fC*fD;
+      const kd=P.kd0+P.kdA*A/(P.KdA+A)+P.kdS*0.2/(0.2+G);
+      const qG=G>1e-6?mu/P.Yxg+P.mg:0;
+      const lacCons=G<P.lacShiftG||tt/24>=P.lacShiftDay;
+      const qL=lacCons?-P.qLc*L/(1+L):P.Ylg*qG;
+      const qQ=Q>1e-6?mu/P.Yxq+P.mq:0, qA=P.Yaq*qQ;
+      const qP=P.qP*(sh?P.qpShift:1);
+      const dX=(mu-kd)*Xv, dXd=kd*Xv;
+      G=Math.max(0,G-qG*Xv*dt); Q=Math.max(0,Q-qQ*Xv*dt); L=Math.max(0,L+qL*Xv*dt); A=A+qA*Xv*dt;
+      Pt+=qP/24*Xv*dt; Xv=Math.max(1e-6,Xv+dX*dt); Xd=Xd+dXd*dt; IVCD+=Xv*dt/24;
+    }
+  }
+  if(!kin){ const g0=out.find(o=>o.G<0.5); if(g0) ev.push({t:g0.t,msg:"葡萄糖接近耗尽"}); const v80=out.find(o=>o.via<80); if(v80) ev.push({t:v80.t,msg:"活率低于 80%"}); }
+  ev.sort((a,b)=>a.t-b.t);
+  const pk=out.reduce((a,b)=>b.Xv>a.Xv?b:a,out[0]);
+  return {out,ev,IVCD,peak:pk,final:out[out.length-1]};
+}
+function parseBatch(id){
+  return $(id).value.split(/\n/).map(l=>l.trim()).filter(l=>l&&!l.startsWith("#")).map(l=>l.split(/[,，;\s\t]+/).filter(Boolean).map(x=>x==="-"?NaN:Number(x))).filter(a=>a.length>=2&&isFinite(a[0])).map(a=>({day:a[0],Xv:a[1],via:a[2],G:a[3],L:a[4],P:a[5]}));
+}
+function simAt(sim,day){ const i=Math.min(sim.out.length-1,Math.max(0,Math.round(day*24))); return sim.out[i]; }
+function batchErr(sim,data){
+  const E={Xv:[],via:[],G:[],L:[],P:[]};
+  data.forEach(d=>{ const s=simAt(sim,d.day); if(isFinite(d.Xv)&&d.Xv>0) E.Xv.push(Math.abs(s.Xv-d.Xv)/d.Xv*100); if(isFinite(d.via)) E.via.push(Math.abs(s.via-d.via)); if(isFinite(d.G)) E.G.push(Math.abs(s.G-d.G)); if(isFinite(d.L)) E.L.push(Math.abs(s.L-d.L)); if(isFinite(d.P)&&d.P>0.05) E.P.push(Math.abs(s.P-d.P)/d.P*100); });
+  const m=a=>a.length?a.reduce((u,v)=>u+v,0)/a.length:null;
+  return {Xv:m(E.Xv),via:m(E.via),G:m(E.G),L:m(E.L),P:m(E.P)};
+}
+function batchObj(sim,data){
+  let s=0;
+  data.forEach(d=>{ const o=simAt(sim,d.day);
+    if(isFinite(d.Xv)&&d.Xv>0) s+=Math.log(Math.max(o.Xv,1e-3)/d.Xv)**2;
+    if(isFinite(d.P)&&d.P>0.05) s+=Math.log(Math.max(o.P,1e-3)/d.P)**2;
+    if(isFinite(d.via)) s+=((o.via-d.via)/10)**2;
+    if(isFinite(d.G)) s+=((o.G-d.G)/10)**2;
+    if(isFinite(d.L)) s+=((o.L-d.L)/10)**2; });
+  return s;
+}
+function nelderMead(f,x0,iters){
+  const n=x0.length; let S_=[x0.slice()]; for(let i=0;i<n;i++){ const x=x0.slice(); x[i]+=0.25; S_.push(x); }
+  let F=S_.map(f);
+  for(let it=0;it<iters;it++){
+    const idx=F.map((v,i)=>i).sort((a,b)=>F[a]-F[b]); S_=idx.map(i=>S_[i]); F=idx.map(i=>F[i]);
+    const c=Array(n).fill(0); for(let i=0;i<n;i++) for(let j=0;j<n;j++) c[j]+=S_[i][j]/n;
+    const xr=c.map((v,j)=>v+(v-S_[n][j])), fr=f(xr);
+    if(fr<F[0]){ const xe=c.map((v,j)=>v+2*(v-S_[n][j])), fe=f(xe); if(fe<fr){ S_[n]=xe; F[n]=fe; } else { S_[n]=xr; F[n]=fr; } }
+    else if(fr<F[n-1]){ S_[n]=xr; F[n]=fr; }
+    else { const xc=c.map((v,j)=>v+0.5*(S_[n][j]-v)), fc=f(xc); if(fc<F[n]){ S_[n]=xc; F[n]=fc; } else { for(let i=1;i<=n;i++){ S_[i]=S_[i].map((v,j)=>S_[0][j]+0.5*(v-S_[0][j])); F[i]=f(S_[i]); } } }
+  }
+  const b=F.indexOf(Math.min(...F)); return {x:S_[b],f:F[b]};
+}
+function runSimFit(){
+  readSim();
+  const tr=parseBatch("simTrain"), va=parseBatch("simValid");
+  if(tr.length<4){ $("simFitOut").textContent="训练批至少需要 4 个时间点。"; return; }
+  const keys=[...document.querySelectorAll(".fitp:checked")].map(c=>c.value);
+  if(!keys.length){ $("simFitOut").textContent="至少勾选一个拟合参数。"; return; }
+  const base=Object.assign({},S), P0=Object.assign({},SIMP);
+  const f=z=>{ const P=Object.assign({},P0); keys.forEach((k,i)=>P[k]=P0[k]*Math.exp(z[i])); if(z.some(v=>Math.abs(v)>2.5)) return 1e9; return batchObj(simulate(base,P,{kineticOnly:true}),tr); };
+  const t0=performance.now(); const res=nelderMead(f,keys.map(()=>0),120);
+  const Pfit=Object.assign({},P0); keys.forEach((k,i)=>Pfit[k]=P0[k]*Math.exp(res.x[i]));
+  const sTr=simulate(base,Pfit,{kineticOnly:true}), eTr=batchErr(sTr,tr), e0=batchErr(simulate(base,P0,{kineticOnly:true}),tr);
+  let txt=`识别参数（训练批 ${tr.length} 个时间点）：\n`+keys.map(k=>`  ${k}: ${(+P0[k]).toPrecision(3)} → ${Pfit[k].toPrecision(3)}`).join("\n");
+  const fe=e=>`VCD ${e.Xv!=null?e.Xv.toFixed(0)+"%":"–"} · 活率 ${e.via!=null?e.via.toFixed(1)+" 点":"–"} · 葡萄糖 ${e.G!=null?e.G.toFixed(1)+" mM":"–"} · 乳酸 ${e.L!=null?e.L.toFixed(1)+" mM":"–"} · 滴度 ${e.P!=null?e.P.toFixed(0)+"%":"–"}`;
+  txt+=`\n训练批平均误差：拟合前 ${fe(e0)}\n               拟合后 ${fe(eTr)}`;
+  if(va.length){ const eVa=batchErr(simulate(base,Pfit,{kineticOnly:true}),va); txt+=`\n验证批（未参与拟合）平均误差：${fe(eVa)}`; txt+=(eVa.Xv!=null&&eVa.Xv<20&&(eVa.P==null||eVa.P<20))?"\n结论：验证批预测误差在 20% 内，可用于该细胞株、该培养基、该工艺范围内的方案比较。":"\n结论：验证批误差偏大，模型尚不能外推到该批；需更多批次或调整模型结构。"; }
+  else txt+="\n没有验证批：拟合好不等于能预测，请至少留一批不参与拟合做验证。";
+  txt+="\n识别时假设 DO 与 pCO₂ 均在控制范围内（只用细胞动力学），应用后的完整模拟会再耦合反应器。";
+  $("simFitOut").textContent=txt; simFitRes={keys,P:Pfit}; $("simFitApply").disabled=false;
+  runSim();
+}
+function runSim(){
+  readSim();
+  const P=Object.assign({},SIMP);
+  const main=simulate(Object.assign({},S),P);
+  let cmp=null;
+  if($("simCompare").checked&&typeof SU!=="undefined"){ const a=Object.assign({},S,SU.src), b=Object.assign({},S,SU.tgt,{rpm:SU.src.rpm*Math.pow(geometry(Object.assign({},S,SU.src)).D/geometry(Object.assign({},S,SU.tgt)).D,2/3),vvmM:SU.src.vvmM,vvmA:SU.src.vvmA,xo2M:SU.src.xo2M||S.xo2M});
+    cmp={A:simulate(a,P),B:simulate(b,P),an:PRESETS[SU.srcKey]?PRESETS[SU.srcKey].name.replace(/（.*）/,""):"A 厂",bn:PRESETS[SU.tgtKey]?PRESETS[SU.tgtKey].name.replace(/（.*）/,""):"B 厂"}; }
+  simLast={main,cmp,P}; renderSim();
+}
+function renderSim(){
+  if(!simLast) return; const {main,cmp}=simLast, P=simLast.P;
+  const acc=css("--accent"),muted=css("--muted"),ok=css("--ok"),warn=css("--warn"),bad=css("--bad"),ink=css("--ink");
+  $("simBanner").innerHTML=simFitRes?`${pill("ok","已用实测批次识别参数")} 识别了 ${simFitRes.keys.join("、")}；其余参数仍为演示值。模型适用于该细胞株、培养基与工艺范围内的比较。`:`${pill("warn","演示参数")} 细胞动力学参数为通用演示值，不代表本厂细胞株。导入实测批次并识别参数后，才能用于与真实批次对照；即便如此，推荐方案仍需实验确认。`;
+  const pk=main.peak, fn=main.final, maxC=Math.max(...main.out.map(o=>o.pco2)), minDO=Math.min(...main.out.map(o=>o.DO)), maxX=Math.max(...main.out.map(o=>o.x)), maxR=Math.max(...main.out.map(o=>o.rpm));
+  const tile=(k,v,u,st)=>`<div class="tile"><div class="k">${k}</div><div class="v">${v}<small>${u}</small>${st?" "+st:""}</div></div>`;
+  $("simKpi").innerHTML=tile("峰值 VCD",fmt(pk.Xv,1),`×10⁶/mL · 第 ${fmt(pk.day,1)} 天`)+tile("终点滴度",fmt(fn.P,2),"g/L")+tile("终点活率",fmt(fn.via,0),"%",fn.via<70?pill("warn","偏低"):"")+tile("IVCD",fmt(main.IVCD,0),"10⁶ 细胞·天/mL")+
+    tile("最低 DO",fmt(minDO,0),"% 空饱",minDO<S.doset-5?pill("bad","控制用尽"):pill("ok","维持"))+tile("最高 pCO₂",fmt(maxC,0),"mmHg",maxC>150?pill("bad","> 150"):maxC>S.pco2Hi?pill("warn","超上限"):pill("ok","窗口内"))+
+    tile("最高 O₂ 分数",fmt(maxX*100,0),"%")+tile("最高转速",fmt(maxR,0),"rpm");
+  const evs=main.ev.length?main.ev.map(e=>`<li><b>第 ${fmt(e.t/24,1)} 天</b> ${e.msg}</li>`).join(""):"<li>全程未触发控制上限或风险事件。</li>";
+  let cmpTxt=""; if(cmp){ const s=(x)=>`峰值 VCD ${fmt(x.peak.Xv,1)}、滴度 ${fmt(x.final.P,2)} g/L、最低 DO ${fmt(Math.min(...x.out.map(o=>o.DO)),0)}%、最高 pCO₂ ${fmt(Math.max(...x.out.map(o=>o.pco2)),0)} mmHg`;
+    cmpTxt=`<li><b>A/B 对比</b> ${cmp.an}：${s(cmp.A)}；${cmp.bn}：${s(cmp.B)}（B 厂起始转速按恒 P/V 近似换算 N∝D^(−2/3)，通气 vvm 与 O₂ 同 A 厂）。</li>`; }
+  $("simEvents").innerHTML=evs+cmpTxt;
+  const days=P.days, X=o=>o.day;
+  const line=(sim,f,col,w,dash)=>({pts:sim.out.filter((o,i)=>i%2===0).map(o=>[X(o),f(o)]),color:col,w:w||2,dash});
+  const tr=parseBatch("simTrain"), va=parseBatch("simValid");
+  const dots=(f,col)=>tr.filter(d=>isFinite(f(d))).map(d=>[d.day,f(d),col,4]).concat(va.filter(d=>isFinite(f(d))).map(d=>[d.day,f(d),"#ffffff",4,col]));
+  const cmpL=(f,scale)=>cmp?[line(cmp.A,o=>f(o)*(scale||1),muted,1.5,"5 4"),line(cmp.B,o=>f(o)*(scale||1),warn,1.5,"5 4")]:[];
+  const yMaxX=Math.max(...main.out.map(o=>o.Xv),...tr.map(d=>d.Xv||0),...(cmp?[cmp.A.peak.Xv,cmp.B.peak.Xv]:[]))*1.15;
+  chart($("sc1"),{title:"VCD",xMin:0,xMax:days,yMin:0,yMax:yMaxX,xLabel:"培养时间 (天)",yLabel:"VCD (×10⁶/mL)",series:[line(main,o=>o.Xv,acc,2.5),line(main,o=>o.via/100*yMaxX,ok,1.5,"6 4"),...cmpL(o=>o.Xv)],dots:dots(d=>d.Xv,acc).concat(dots(d=>d.via/100*yMaxX,ok)),labels:[{x:days,y:yMaxX*0.97,text:"活率 100%",color:ok},...(cmp?[{x:days*0.02,y:yMaxX*0.6,text:`虚线：${cmp.an}（灰）/ ${cmp.bn}（橙）`,color:muted,anchor:"start"}]:[])]});
+  const yM2=Math.max(...main.out.map(o=>Math.max(o.G,o.L,o.A)),...tr.map(d=>Math.max(d.G||0,d.L||0)))*1.12;
+  chart($("sc2"),{title:"代谢物",xMin:0,xMax:days,yMin:0,yMax:yM2,xLabel:"培养时间 (天)",yLabel:"浓度 (mM)",series:[line(main,o=>o.G,acc),line(main,o=>o.L,warn),line(main,o=>o.A,bad,1.5)],dots:dots(d=>d.G,acc).concat(dots(d=>d.L,warn)),labels:[{x:days,y:main.final.G+yM2*0.03,text:"葡萄糖",color:acc},{x:days,y:main.final.L+yM2*0.03,text:"乳酸",color:warn},{x:days,y:main.final.A+yM2*0.03,text:"氨",color:bad}]});
+  const yM3=Math.max(main.final.P,...tr.map(d=>d.P||0),...(cmp?[cmp.A.final.P,cmp.B.final.P]:[]))*1.15||1;
+  chart($("sc3"),{title:"滴度",xMin:0,xMax:days,yMin:0,yMax:yM3,xLabel:"培养时间 (天)",yLabel:"滴度 (g/L)",series:[line(main,o=>o.P,acc,2.5),...cmpL(o=>o.P)],dots:dots(d=>d.P,acc)});
+  const yM4=Math.max(...main.out.map(o=>Math.max(o.OUR,o.OTRcap||0)))*1.1;
+  chart($("sc4"),{title:"OUR 与 OTR",xMin:0,xMax:days,yMin:0,yMax:yM4,xLabel:"培养时间 (天)",yLabel:"mmol O₂/L/h",series:[line(main,o=>o.OTRcap,ok,2),line(main,o=>o.OUR,bad,2.5)],labels:[{x:days,y:main.final.OUR+yM4*0.04,text:"OUR",color:bad},{x:days*0.02,y:(main.out[0].OTRcap||0)+yM4*0.04,text:"最大 OTR（O₂ 上限）",color:ok,anchor:"start"}]});
+  const yM5=Math.max(100,...main.out.map(o=>o.rpm),...main.out.map(o=>Math.max(o.vM,o.vA)*1000))*1.1;
+  chart($("sc5"),{title:"串级",xMin:0,xMax:days,yMin:0,yMax:yM5,xLabel:"培养时间 (天)",yLabel:"% · rpm · ×1000 vvm",series:[line(main,o=>o.x*100,acc,2.5),line(main,o=>o.rpm,ink,1.5),line(main,o=>o.vM*1000,ok,1.5),line(main,o=>o.vA*1000,warn,1.5,"5 3")],labels:[{x:days,y:main.final.x*100+yM5*0.035,text:"O₂ %",color:acc},{x:days,y:main.final.rpm+yM5*0.035,text:"rpm",color:ink},{x:days,y:main.final.vM*1000+yM5*0.035,text:"微泡",color:ok},{x:days,y:main.final.vA*1000-yM5*0.03,text:"大泡",color:warn}]});
+  const yM6=Math.max(160,...main.out.map(o=>Math.max(o.DO,o.pco2)))*1.08;
+  chart($("sc6"),{title:"DO 与 pCO2",xMin:0,xMax:days,yMin:0,yMax:yM6,xLabel:"培养时间 (天)",yLabel:"DO % · pCO₂ mmHg",bands:[{y0:S.pco2Lo,y1:S.pco2Hi,color:ok}],series:[line(main,o=>o.DO,acc,2.5),line(main,o=>o.pco2,bad,2),...(cmp?[line(cmp.B,o=>o.pco2,warn,1.5,"5 4"),line(cmp.B,o=>o.DO,muted,1.5,"5 4")]:[])],labels:[{x:days,y:main.final.DO+yM6*0.04,text:"DO",color:acc},{x:days,y:main.final.pco2+yM6*0.04,text:"pCO₂",color:bad}]});
+}
+function simExampleData(){
+  // 合成示例：用偏离默认值的参数生成，再加约 8% 噪声，模拟“真实批次”
+  const P=Object.assign({},SIMP,{muMax:SIMP.muMax*0.88,kd0:SIMP.kd0*1.4,qP:SIMP.qP*1.15,Yxg:SIMP.Yxg*0.9});
+  const mk=(seed,dX)=>{ let s=seed; const rnd=()=>{ s=(s*16807)%2147483647; return (s/2147483647-0.5)*2; };
+    const sim=simulate(Object.assign({},BASE,PRESETS.xdr2000.v),Object.assign({},P,{muMax:P.muMax*dX}),{kineticOnly:true});
+    return "# 天, VCD, 活率%, 葡萄糖mM, 乳酸mM, 滴度g/L（合成示例）\n"+[0,2,3,4,5,6,7,8,9,10,11,12,13,14].map(d=>{ const o=simAt(sim,d), n=x=>x*(1+0.08*rnd());
+      return [d,n(o.Xv).toFixed(2),Math.min(100,o.via+2*rnd()).toFixed(1),Math.max(0,n(o.G)).toFixed(1),Math.max(0,n(o.L)).toFixed(1),d<3?"-":n(o.P).toFixed(2)].join(", "); }).join("\n"); };
+  $("simTrain").value=mk(12345,1.0); $("simValid").value=mk(777,0.96);
+}
+
+/* ===== 主流程 ===== */
+let timer=null, prevKey=null;
+function update(resetView){
+  const r=compute(S); current=r;
+  renderResults(r); renderCharts(r); renderScale();
+  if($("p-space").classList.contains("active")) renderSpace(r);
+  if($("p-imp").classList.contains("active")) renderImpCompare();
+  if($("p-sim").classList.contains("active")) runSim();
+  buildScene(r);
+  const key=r.T.toFixed(2)+"|"+r.H.toFixed(2);
+  if(camera&&(resetView||key!==prevKey)){ setView("iso"); prevKey=key; }
+}
+function schedule(){ clearTimeout(timer); timer=setTimeout(()=>update(false),50); }
+
+buildForm(); writeForm();
+const sel=$("preset"); sel.innerHTML=Object.keys(PRESETS).map(k=>`<option value="${k}">${PRESETS[k].name}</option>`).join(""); sel.value="xdr2000"; $("presetNote").textContent=PRESETS.xdr2000.note;
+sel.addEventListener("change",()=>applyPreset(sel.value));
+const tog=(id,k)=>$(id).addEventListener("click",()=>{ flags[k]=!flags[k]; $(id).setAttribute("aria-pressed",flags[k]); if(k!=="anim") update(false); });
+[["tCut","cut"],["tFlow","flow"],["tEdr","edr"],["tBub","bub"],["tLiq","liq"],["tDims","dims"],["tLbl","lbl"],["tAnim","anim"]].forEach(a=>{ tog(a[0],a[1]); $(a[0]).setAttribute("aria-pressed",flags[a[1]]); });
+$("vFront").onclick=()=>setView("front"); $("vIso").onclick=()=>setView("iso"); $("vTop").onclick=()=>setView("top");
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x===t));
+  document.querySelectorAll(".panel").forEach(pn=>pn.classList.toggle("active",pn.id===t.getAttribute("aria-controls")));
+  if(t.id==="tab-space") renderSpace(current);
+  if(t.id==="tab-fit"&&!fitResult){ $("optVCD").value=S.vcd; runFit(); }
+  if(t.id==="tab-sim"&&!simLast) runSim();
+  if(t.id==="tab-imp"){ initGallery(); renderImpDetail(); renderImpCompare(); } if(gal) gal.active=(t.id==="tab-imp");
+}));
+$("suGas").addEventListener("change",renderScale);
+$("impCell").addEventListener("change",renderImpCompare);
+$("impDt").addEventListener("change",renderImpCompare);
+$("suFromMain").onclick=()=>{ SU.src=pick(S,GEO_KEYS); SU.srcKey=""; buildSu("src"); renderScale(); };
+$("suToMain").onclick=()=>{ if(!suTarget) return; Object.assign(S,pick(suTarget.pt,GEO_KEYS),{rpm:Math.round(suTarget.rk.p.rpm*10)/10}); writeForm(); sel.value=SU.tgtKey||sel.value; curPreset=SU.tgtKey||curPreset; $("presetNote").textContent=(PRESETS[curPreset]||{}).note||""; syncStateButtons(); renderScenario(); update(true); scrollTo({top:0,behavior:"smooth"}); };
+$("fitRun").onclick=runFit;
+$("optRun").onclick=runOptimize;
+$("simRun").onclick=runSim; $("simFit").onclick=runSimFit; $("simCompare").onchange=runSim;
+$("simFitApply").onclick=()=>{ if(!simFitRes) return; Object.assign(SIMP,simFitRes.P); writeSim(); runSim(); };
+$("calApplyProc").onclick=applyProcCal;
+$("fitApply").onclick=()=>{ if(!fitResult) return; FIT=fitResult; S.model="fit"; $("model").value="fit"; onField("model"); update(false); };
+$("optVCD").value=S.vcd;
+const reTheme=()=>{ if(current) update(false); };
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",reTheme);
+new MutationObserver(reTheme).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+function syncStateButtons(){ const su=S.material==="su"; if(su&&(flags.state==="cip"||flags.state==="sip")) flags.state="run";
+  document.querySelectorAll(".btn.st").forEach(b=>{ const st=b.dataset.st; b.disabled=su&&(st==="cip"||st==="sip"); b.title=b.disabled?"一次性袋为伽马辐照预灭菌，不做 CIP/SIP":""; b.setAttribute("aria-pressed",flags.state===st); }); }
+document.querySelectorAll(".btn.st").forEach(b=>b.addEventListener("click",()=>{ if(b.disabled) return; flags.state=b.dataset.st; syncStateButtons(); update(false); }));
+$("material").addEventListener("change",()=>{ syncStateButtons(); });
+window.__klaEngine={compute:(p,o)=>compute(p,o),geometry,csWater,evaluate,S,IMP,PRESETS,BASE,setFIT:f=>{FIT=f;}};
+window.__klaSim={simulate:(b,P,o)=>simulate(b,P,o),nelderMead,batchObj,simAt,SIMP,S,BASE,PRESETS};
+buildSimForm(); simExampleData();
+buildSu("src"); buildSu("tgt"); renderVendor(); renderScenario(); renderScenarioMatrix(); syncStateButtons();
+const ok3=initThree(); update(true); if(ok3) requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
